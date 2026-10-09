@@ -2,7 +2,7 @@
 
 Producto: inmobiliaria virtual para Colombia (comprar, arrendar, publicar). Idioma: **español de Colombia, tuteo** ("tú"), textos cortos y cálidos. Marca **Jucaro** (`SITE.name`).
 
-Identidad: el júcaro es un árbol de costa cuyo dosel parece un techo y cuyas raíces se quedan. Paleta — manglar `#145C4C`, tinta `#1A1814`, latón `#C9A15A`, teja `#C4522A`, papel `#FFFDFB`. El isotipo vive en `components/layout/logo.tsx` y en `public/brand/`.
+Identidad: el júcaro es un árbol de costa cuyo dosel parece un techo y cuyas raíces se quedan. Paleta — manglar `#0A6B50`, tinta `#171410`, latón `#D4A44A`, teja `#C4522A`, papel `#FFFAF4`. El isotipo es un monograma JC (la J es el pilar, la C el dosel-techo) en `components/layout/logo.tsx` y `app/icon.svg`.
 
 ## Meta de diseño
 "Que atrape al cliente en 3 segundos": **fotografía enorme, tipografía editorial, movimiento sutil, fondo blanco limpio**. Debe sentirse como un producto de 5 estrellas (Airbnb/Compass/Zillow-premium), pero simple de usar. Nada de "dashboard genérico".

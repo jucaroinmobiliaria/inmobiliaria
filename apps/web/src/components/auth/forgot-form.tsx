@@ -8,6 +8,7 @@ import { Mail } from "@/components/ui/icon";
 import { api } from "@/lib/api";
 import { FormAlert } from "./login-form";
 import { isEmail, readError, type FieldErrors } from "./form-utils";
+import { burst } from "@/components/motion/gestures";
 
 export function ForgotForm() {
   const [email, setEmail] = useState("");
@@ -47,7 +48,7 @@ export function ForgotForm() {
     <form method="post" action="#" onSubmit={submit} noValidate className="grid gap-5">
       {formError && <FormAlert>{formError}</FormAlert>}
       <Input label="Correo electrónico" type="email" name="email" autoComplete="email" inputMode="email" placeholder="nombre@correo.com" leading={<Mail className="h-[18px] w-[18px]" />} value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} autoFocus />
-      <Button type="submit" size="lg" loading={busy} className="w-full">Enviarme el enlace</Button>
+      <Button type="submit" size="lg" loading={busy} className="w-full" onClick={(e) => burst("plane", e.currentTarget)}>Enviarme el enlace</Button>
       <p className="text-center text-[15px] text-ink-2">¿La recordaste? <Link href="/ingresar" className="font-semibold text-brand-700 underline-offset-4 hover:underline">Volver a ingresar</Link></p>
     </form>
   );

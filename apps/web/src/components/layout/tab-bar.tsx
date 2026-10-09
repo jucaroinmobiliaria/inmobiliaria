@@ -22,12 +22,12 @@ export function TabBar() {
     { href: user ? "/panel" : "/ingresar", label: user ? "Cuenta" : "Ingresar", icon: User, active: pathname.startsWith("/panel") },
   ];
   return (
-    <nav aria-label="Navegación inferior" className="glass safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line md:hidden">
+    <nav aria-label="Navegación inferior" className="glass safe-bottom fixed inset-x-0 bottom-0 z-[60] border-t border-line md:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-5 items-end px-2 pt-2">
         {items.map((i) => (
           <li key={i.label} className="flex justify-center">
-            <Link href={i.href} className={cn("flex flex-col items-center gap-1 px-3 pb-1 text-[11px] font-semibold transition-colors", i.active ? "text-brand-700" : "text-ink-3")}>
-              {i.cta ? <span className="-mt-5 grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white shadow-[0_8px_20px_-6px_rgb(11_107_87/0.8)]"><i.icon className="h-6 w-6" strokeWidth={2.2} /></span> : <i.icon className="h-[22px] w-[22px]" strokeWidth={i.active ? 2.2 : 1.8} />}
+            <Link href={i.href} className={cn("relative z-10 flex min-h-11 min-w-11 flex-col items-center gap-1 px-3 pb-1 text-[11px] font-semibold transition-colors", i.active ? "text-brand-700" : "text-ink-3")}>
+              {i.cta ? <span className="-mt-5 grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white shadow-[0_8px_20px_-6px_rgb(10_107_80/0.8)]"><i.icon className="h-6 w-6" strokeWidth={2.2} /></span> : <i.icon className="h-[22px] w-[22px]" strokeWidth={i.active ? 2.2 : 1.8} />}
               {i.label}
             </Link>
           </li>

@@ -37,7 +37,7 @@ function pinElement() {
   el.setAttribute("role", "img");
   el.setAttribute("aria-label", "Ubicación del inmueble. Arrástrala para ajustar.");
   el.style.cssText = "width:44px;height:52px;cursor:grab;filter:drop-shadow(0 6px 8px rgba(14,21,18,.35));transition:transform .2s cubic-bezier(.34,1.56,.64,1);transform-origin:50% 100%";
-  el.innerHTML = `<svg viewBox="0 0 44 52" width="44" height="52" aria-hidden="true"><path d="M22 51C22 51 4 33.5 4 21A18 18 0 0 1 40 21C40 33.5 22 51 22 51Z" fill="#0b6b57" stroke="#fff" stroke-width="3"/><circle cx="22" cy="21" r="7" fill="#fff"/></svg>`;
+  el.innerHTML = `<svg viewBox="0 0 44 52" width="44" height="52" aria-hidden="true"><path d="M22 51C22 51 4 33.5 4 21A18 18 0 0 1 40 21C40 33.5 22 51 22 51Z" fill="#0a6b50" stroke="#fff" stroke-width="3"/><circle cx="22" cy="21" r="7" fill="#fff"/></svg>`;
   return el;
 }
 
@@ -70,7 +70,7 @@ export default function MapPicker({ center, flyKey, value, onChange, approximate
       if (!m.isStyleLoaded() && !blanked.current) return;
       m.addSource("zone", { type: "geojson", data });
       m.addLayer({ id: "zone-fill", type: "fill", source: "zone", paint: { "fill-color": "#138a71", "fill-opacity": 0.18 } });
-      m.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": "#0b6b57", "line-width": 2, "line-dasharray": [2, 2] } });
+      m.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": "#0a6b50", "line-width": 2, "line-dasharray": [2, 2] } });
     } catch { /* el estilo aún no está listo: se reintenta en styledata */ }
   }, []);
 

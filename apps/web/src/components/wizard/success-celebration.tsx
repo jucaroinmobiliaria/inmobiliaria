@@ -3,7 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { Check } from "@/components/uploader/icons";
 
-const COLORS = ["#0b6b57", "#2fa88c", "#f2b544", "#b2ddd0", "#084f40", "#ffd98a"];
+const COLORS = ["#0a6b50", "#2ba07a", "#d4a44a", "#cfeadb", "#085240", "#f8eed8"];
 const rnd = (i: number, k: number) => {
   const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
   return x - Math.floor(x);
@@ -35,7 +35,7 @@ export function SuccessCelebration() {
         </div>
       )}
       <motion.span
-        className="relative grid h-24 w-24 place-items-center rounded-full bg-brand-600 text-white shadow-[0_18px_40px_-12px_rgb(11_107_87/0.7)]"
+        className="relative grid h-24 w-24 place-items-center rounded-full bg-brand-600 text-white shadow-[0_18px_40px_-12px_rgb(10_107_80/0.7)]"
         initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.1 }}
       >
         <motion.span initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} className="absolute inset-0 rounded-full ring-8 ring-brand-600/15" />

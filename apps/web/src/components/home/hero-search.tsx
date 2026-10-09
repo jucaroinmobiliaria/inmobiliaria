@@ -45,7 +45,7 @@ export function HeroSearch({ types, popular }: { types: TypeOpt[]; popular: Sugg
 
   return (
     <form onSubmit={submit} role="search" aria-label="Buscar inmuebles"
-      className="relative z-20 rounded-[28px] border border-white/80 bg-white/95 p-3 shadow-[0_30px_80px_-20px_rgb(6_20_15/0.55)] backdrop-blur-2xl sm:p-4 lg:px-3 lg:pb-3 lg:pt-3">
+      className="relative z-10 rounded-[28px] border border-white/80 bg-white/95 p-3 shadow-[0_30px_80px_-20px_rgb(6_20_15/0.55)] backdrop-blur-2xl sm:p-4 lg:px-3 lg:pb-3 lg:pt-3">
       {/* Pestañas Comprar / Arrendar */}
       <div role="tablist" aria-label="Operación" className="relative mb-3 flex w-full gap-1 rounded-full bg-surface p-1 lg:mb-1 lg:ml-3 lg:w-auto lg:gap-7 lg:rounded-none lg:bg-transparent lg:p-0">
         {OPS.map((o) => (
@@ -128,7 +128,7 @@ export function HeroSearch({ types, popular }: { types: TypeOpt[]; popular: Sugg
         </Cell>
 
         <div className="col-span-2 mt-1 flex lg:col-span-1 lg:mt-0 lg:items-stretch lg:pl-3">
-          <button type="submit" className="group inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-brand-600 px-8 text-base font-semibold text-white shadow-[0_12px_28px_-10px_rgb(11_107_87/0.9)] transition-all hover:bg-brand-700 active:scale-[0.97] lg:h-auto lg:min-h-[64px] lg:w-auto">
+          <button type="submit" className="group inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-brand-600 px-8 text-base font-semibold text-white shadow-[0_12px_28px_-10px_rgb(10_107_80/0.9)] transition-all hover:bg-brand-700 active:scale-[0.97] lg:h-auto lg:min-h-[64px] lg:w-auto">
             <Search className="h-5 w-5 transition-transform group-hover:scale-110" strokeWidth={2.2} />Buscar
           </button>
         </div>

@@ -2,7 +2,7 @@
 
 Plataforma para **comprar, arrendar y publicar inmuebles**: portal público con búsqueda y mapa, ficha con galería inmersiva, asistente de publicación de 10 pasos con un cargador de fotos avanzado, panel del anunciante (estadísticas, mensajes, visitas) y consola de administración. **Cada aviso lo aprueba un administrador** antes de salir al público (`AUTO_APPROVE=false`).
 
-Marca: manglar `#145C4C`, latón `#C9A15A`, teja `#C4522A`, papel `#FFFDFB`. Isotipo en `apps/web/src/components/layout/logo.tsx`.
+Marca: manglar `#0A6B50`, latón `#D4A44A`, teja `#C4522A`, papel `#FFFAF4`. Isotipo en `apps/web/src/components/layout/logo.tsx`.
 
 | Capa | Tecnología |
 |---|---|

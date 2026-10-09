@@ -143,7 +143,7 @@ export function StepAmenities({ draft, catalog, update }: StepProps) {
                 const on = sel.has(a.id);
                 return (
                   <button key={a.id} type="button" aria-pressed={on} onClick={() => toggle(a.id)}
-                    className={cn("inline-flex h-12 items-center gap-2.5 rounded-full border pl-3.5 pr-5 text-[15px] font-semibold transition-all active:scale-95", on ? "border-brand-700 bg-brand-700 text-white shadow-[0_6px_16px_-8px_rgb(8_79_64/0.7)]" : "border-line-strong bg-white text-ink hover:border-ink")}>
+                    className={cn("inline-flex h-12 items-center gap-2.5 rounded-full border pl-3.5 pr-5 text-[15px] font-semibold transition-all active:scale-95", on ? "border-brand-700 bg-brand-700 text-white shadow-[0_6px_16px_-8px_rgb(8_82_64/0.7)]" : "border-line-strong bg-white text-ink hover:border-ink")}>
                     <Icon name={a.icon} size={19} className={on ? "text-white" : "text-brand-600"} />{a.name}
                   </button>
                 );

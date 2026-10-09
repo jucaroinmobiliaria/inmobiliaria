@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export const viewport: Viewport = { themeColor: "#0F463A", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#085240", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[300] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">Saltar al contenido</a>
           <Header />
-          <main id="contenido" className="min-h-[70dvh]">{children}</main>
+          <main id="contenido" className="min-h-[70dvh] pb-20 md:pb-0">{children}</main>
           <Footer />
           <TabBar />
           <Toaster />

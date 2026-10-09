@@ -103,7 +103,7 @@ export function Hero({ totals, types, popular }: Props) {
       </div>
 
       {/* Tarjeta de búsqueda flotante */}
-      <div className="container-x relative z-20 -mt-[var(--ov)] [--ov:250px] sm:[--ov:230px] lg:[--ov:96px]">
+      <div className="container-x relative z-10 -mt-[var(--ov)] mb-20 [--ov:250px] sm:[--ov:230px] sm:mb-8 lg:[--ov:96px] lg:mb-0">
         <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75, duration: 1, ease: EASE }}>
           <HeroSearch types={types} popular={popular} />
         </motion.div>

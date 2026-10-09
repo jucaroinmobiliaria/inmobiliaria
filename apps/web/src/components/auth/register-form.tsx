@@ -14,6 +14,7 @@ import { PasswordInput, StrengthMeter } from "./password-input";
 import { FormAlert } from "./login-form";
 import { isEmail, readError, type FieldErrors } from "./form-utils";
 import { landingFor } from "./safe-next";
+import { burst } from "@/components/motion/gestures";
 
 export type RegRole = "USER" | "OWNER" | "AGENT";
 const ROLES: { value: RegRole; title: string; text: string; icon: React.ReactNode }[] = [
@@ -69,7 +70,7 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
           {ROLES.map((r) => {
             const on = role === r.value;
             return (
-              <label key={r.value} className={cn("relative flex cursor-pointer flex-row items-center gap-3 rounded-[18px] border p-3.5 transition-all sm:flex-col sm:items-start sm:gap-2.5 sm:p-4", on ? "border-brand-600 bg-brand-50 shadow-[0_0_0_3px_rgb(11_107_87/0.12)]" : "border-line-strong hover:border-ink")}>
+              <label key={r.value} className={cn("relative flex cursor-pointer flex-row items-center gap-3 rounded-[18px] border p-3.5 transition-all sm:flex-col sm:items-start sm:gap-2.5 sm:p-4", on ? "border-brand-600 bg-brand-50 shadow-[0_0_0_3px_rgb(10_107_80/0.12)]" : "border-line-strong hover:border-ink")}>
                 <input type="radio" name="role" value={r.value} checked={on} onChange={() => setRole(r.value)} className="peer sr-only" />
                 <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors", on ? "bg-brand-600 text-white" : "bg-surface text-ink-2")}>{r.icon}</span>
                 <span className="min-w-0"><span className="block text-[14.5px] font-semibold leading-tight">{r.title}</span><span className="mt-0.5 block text-[12.5px] leading-snug text-ink-3">{r.text}</span></span>
@@ -94,7 +95,7 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
         {errors.terms && <p role="alert" className="text-[13px] font-medium text-danger">{errors.terms}</p>}
       </div>
 
-      <Button type="submit" size="lg" loading={busy} className="w-full">Crear mi cuenta</Button>
+      <Button type="submit" size="lg" loading={busy} className="w-full" onClick={(e) => burst("seal", e.currentTarget)}>Crear mi cuenta</Button>
       <p className="text-center text-[15px] text-ink-2">¿Ya tienes cuenta? <Link href={loginHref} className="font-semibold text-brand-700 underline-offset-4 hover:underline">Ingresa</Link></p>
     </form>
   );

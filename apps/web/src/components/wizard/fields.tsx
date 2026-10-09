@@ -30,7 +30,7 @@ export function OptionCard({ selected, onClick, icon, title, text, className, si
       className={cn(
         "group relative flex w-full text-left transition-all duration-300 ease-[var(--ease-out-expo)] active:scale-[0.985]",
         size === "lg" ? "flex-col gap-4 rounded-[24px] border-2 p-5 sm:p-6" : "items-center gap-3.5 rounded-[18px] border-2 p-3.5 sm:flex-col sm:items-start sm:gap-3 sm:p-4",
-        selected ? "border-brand-600 bg-brand-50 shadow-[0_8px_24px_-12px_rgb(11_107_87/0.5)]" : "border-line bg-white hover:border-line-strong hover:shadow-[var(--shadow-card)]",
+        selected ? "border-brand-600 bg-brand-50 shadow-[0_8px_24px_-12px_rgb(10_107_80/0.5)]" : "border-line bg-white hover:border-line-strong hover:shadow-[var(--shadow-card)]",
         className,
       )}
     >

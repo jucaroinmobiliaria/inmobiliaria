@@ -25,8 +25,8 @@ export function LocationMap({ lat, lng, approximate, label, className }: { lat: 
           const add = () => {
             if (m.getSource("approx")) return;
             m.addSource("approx", { type: "geojson", data: circlePolygon(lng, lat, 260) });
-            m.addLayer({ id: "approx-fill", type: "fill", source: "approx", paint: { "fill-color": "#0b6b57", "fill-opacity": 0.16 } });
-            m.addLayer({ id: "approx-line", type: "line", source: "approx", paint: { "line-color": "#0b6b57", "line-width": 2, "line-opacity": 0.75 } });
+            m.addLayer({ id: "approx-fill", type: "fill", source: "approx", paint: { "fill-color": "#0a6b50", "fill-opacity": 0.16 } });
+            m.addLayer({ id: "approx-line", type: "line", source: "approx", paint: { "line-color": "#0a6b50", "line-width": 2, "line-opacity": 0.75 } });
           };
           if (m.isStyleLoaded()) add();
           m.on("style.load", add);

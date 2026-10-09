@@ -140,7 +140,7 @@ export default function CropEditor({ open, itemKey, engine, onClose }: Props) {
       ctx.fillStyle = "#fff";
       ctx.fill();
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "#0b6b57";
+      ctx.strokeStyle = "#0a6b50";
       ctx.stroke();
     }
   }, [img, geo, rect, rot, size, rw, rh, aspect]);

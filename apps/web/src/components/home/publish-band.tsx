@@ -27,7 +27,7 @@ export function PublishBand() {
         <div className="container-x grid items-center gap-14 lg:grid-cols-[1.15fr_0.85fr]">
           <Reveal>
             <p className="eyebrow mb-4 !text-brand-200">Para propietarios y agentes</p>
-            <h2 id="publicar-titulo" className="display-lg max-w-[14ch] text-balance">Publica tu inmueble en <em className="italic text-[#ffe6b0]">minutos</em></h2>
+            <h2 id="publicar-titulo" className="display-lg max-w-[14ch] text-balance">Publica tu inmueble en <em className="italic text-[#f3d48a]">minutos</em></h2>
             <ul className="mt-8 grid gap-3.5">
               {BENEFITS.map((b) => (
                 <li key={b} className="flex items-center gap-3 text-[17px] text-white/90"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500/90 text-white"><Check className="h-4 w-4" strokeWidth={3} /></span>{b}</li>

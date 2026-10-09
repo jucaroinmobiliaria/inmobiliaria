@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export type BurstKind = "plane" | "trash" | "key" | "stamp" | "seal" | "pause" | "play" | "copy" | "renew" | "heart" | "reject";
+export type BurstKind = "plane" | "trash" | "key" | "stamp" | "seal" | "pause" | "play" | "copy" | "renew" | "heart" | "reject" | "door";
 
 type Burst = { id: number; kind: BurstKind; x: number; y: number };
 
@@ -48,7 +48,7 @@ export function ActionStage() {
       const d = (e as CustomEvent<Burst>).detail;
       if (!d?.kind) return;
       setItems((xs) => [...xs.slice(-10), d]);
-      window.setTimeout(() => setItems((xs) => xs.filter((i) => i.id !== d.id)), 1200);
+      window.setTimeout(() => setItems((xs) => xs.filter((i) => i.id !== d.id)), 1500);
     };
     window.addEventListener("jucaro:burst", on);
     return () => window.removeEventListener("jucaro:burst", on);
@@ -76,16 +76,17 @@ function Glyph({ kind }: { kind: BurstKind }) {
   if (kind === "copy") return <CopySheets />;
   if (kind === "renew") return <Renew />;
   if (kind === "heart") return <HeartPop />;
+  if (kind === "door") return <DoorOpen />;
   return <Seal />;
 }
 
 function PaperPlane() {
   return (
     <svg className="j-plane" viewBox="0 0 48 48" fill="none">
-      <path className="j-trail" d="M6 34c8-2 12-8 14-16" stroke="#C9A15A" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 3" />
-      <path d="M8 28.5 40 8.5 24.5 40.5 21.2 27.2 8 28.5Z" fill="#fff" stroke="#145C4C" strokeWidth="1.6" strokeLinejoin="round" />
-      <path d="M21.2 27.2 40 8.5" stroke="#145C4C" strokeWidth="1.4" />
-      <path d="m21.2 27.2 3.3 13.3 4.2-8.6" fill="#E4EEE9" stroke="#145C4C" strokeWidth="1.3" strokeLinejoin="round" />
+      <path className="j-trail" d="M6 34c8-2 12-8 14-16" stroke="#D4A44A" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 3" />
+      <path d="M8 28.5 40 8.5 24.5 40.5 21.2 27.2 8 28.5Z" fill="#fff" stroke="#0A6B50" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M21.2 27.2 40 8.5" stroke="#0A6B50" strokeWidth="1.4" />
+      <path d="m21.2 27.2 3.3 13.3 4.2-8.6" fill="#EAF6F1" stroke="#0A6B50" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -93,13 +94,25 @@ function PaperPlane() {
 function TrashCan() {
   return (
     <svg className="j-bin" viewBox="0 0 48 48" fill="none">
-      <rect className="j-scrap" x="21" y="16" width="6" height="8" rx="1" fill="#C9A15A" />
+      <rect className="j-scrap" x="20.5" y="8" width="7" height="9" rx="1.2" fill="#D4A44A" />
       <g className="j-lid">
-        <path d="M16 16.5h16" stroke="#145C4C" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M20 16.2v-2.2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2.2" stroke="#145C4C" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M15.5 17h17" stroke="#0A6B50" strokeWidth="2" strokeLinecap="round" />
+        <path d="M20 16.8v-2.6a2.2 2.2 0 0 1 2.2-2.2h3.6a2.2 2.2 0 0 1 2.2 2.2v2.6" stroke="#0A6B50" strokeWidth="1.8" strokeLinecap="round" />
       </g>
-      <path d="M15.5 19.5h17l-1.2 16.2a2 2 0 0 1-2 1.8h-10.6a2 2 0 0 1-2-1.8L15.5 19.5Z" fill="#fff" stroke="#145C4C" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M21 24.5v8M27 24.5v8" stroke="#145C4C" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M15.5 19.5h17l-1.2 16.2a2 2 0 0 1-2 1.8h-10.6a2 2 0 0 1-2-1.8L15.5 19.5Z" fill="#fff" stroke="#0A6B50" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M21 24.5v8M27 24.5v8" stroke="#0A6B50" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DoorOpen() {
+  return (
+    <svg className="j-door" viewBox="0 0 48 48" fill="none">
+      <path d="M14 10h12v28H14Z" fill="#EAF6F1" stroke="#0A6B50" strokeWidth="1.7" />
+      <g className="j-door-leaf">
+        <path d="M26 10h10.5L40 38H26V10Z" fill="#fff" stroke="#0A6B50" strokeWidth="1.7" strokeLinejoin="round" />
+        <circle cx="34.2" cy="24.5" r="1.6" fill="#D4A44A" />
+      </g>
     </svg>
   );
 }
@@ -107,9 +120,9 @@ function TrashCan() {
 function KeyTurn() {
   return (
     <svg className="j-key" viewBox="0 0 48 48" fill="none">
-      <circle cx="18" cy="20" r="7" fill="#fff" stroke="#145C4C" strokeWidth="1.8" />
-      <circle cx="18" cy="20" r="2.4" fill="#C9A15A" />
-      <path d="M24.2 22.6 36 31.2l-3.2 3.4-2.6-2.2-2.2 2.2-2.4-2.4 2.2-2.2-2.2-2.4 4.6-5Z" fill="#fff" stroke="#145C4C" strokeWidth="1.6" strokeLinejoin="round" />
+      <circle cx="18" cy="20" r="7" fill="#fff" stroke="#0A6B50" strokeWidth="1.8" />
+      <circle cx="18" cy="20" r="2.4" fill="#D4A44A" />
+      <path d="M24.2 22.6 36 31.2l-3.2 3.4-2.6-2.2-2.2 2.2-2.4-2.4 2.2-2.2-2.2-2.4 4.6-5Z" fill="#fff" stroke="#0A6B50" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -117,8 +130,8 @@ function KeyTurn() {
 function Stamp() {
   return (
     <svg className="j-stamp" viewBox="0 0 48 48" fill="none">
-      <circle cx="24" cy="24" r="14" fill="#145C4C" />
-      <circle cx="24" cy="24" r="10.5" stroke="#C9A15A" strokeWidth="1.4" />
+      <circle cx="24" cy="24" r="14" fill="#0A6B50" />
+      <circle cx="24" cy="24" r="10.5" stroke="#D4A44A" strokeWidth="1.4" />
       <path d="m16.8 24.4 4.6 4.6 10-10.4" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -146,9 +159,9 @@ function Seal() {
 function Blinds({ open }: { open?: boolean }) {
   return (
     <svg className={open ? "j-blinds j-blinds-open" : "j-blinds"} viewBox="0 0 48 48" fill="none">
-      <rect x="10" y="12" width="28" height="24" rx="3" fill="#fff" stroke="#145C4C" strokeWidth="1.7" />
-      <path className="j-slat" d="M13 18h22M13 23h22M13 28h22" stroke="#145C4C" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M22 12v-2h4" stroke="#C9A15A" strokeWidth="1.6" strokeLinecap="round" />
+      <rect x="10" y="12" width="28" height="24" rx="3" fill="#fff" stroke="#0A6B50" strokeWidth="1.7" />
+      <path className="j-slat" d="M13 18h22M13 23h22M13 28h22" stroke="#0A6B50" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M22 12v-2h4" stroke="#D4A44A" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
@@ -156,8 +169,8 @@ function Blinds({ open }: { open?: boolean }) {
 function CopySheets() {
   return (
     <svg className="j-copy" viewBox="0 0 48 48" fill="none">
-      <rect x="14" y="14" width="18" height="22" rx="3" fill="#E4EEE9" stroke="#145C4C" strokeWidth="1.6" />
-      <rect className="j-sheet" x="18" y="10" width="18" height="22" rx="3" fill="#fff" stroke="#145C4C" strokeWidth="1.6" />
+      <rect x="14" y="14" width="18" height="22" rx="3" fill="#EAF6F1" stroke="#0A6B50" strokeWidth="1.6" />
+      <rect className="j-sheet" x="18" y="10" width="18" height="22" rx="3" fill="#fff" stroke="#0A6B50" strokeWidth="1.6" />
     </svg>
   );
 }
@@ -165,8 +178,8 @@ function CopySheets() {
 function Renew() {
   return (
     <svg className="j-renew" viewBox="0 0 48 48" fill="none">
-      <path d="M24 12a12 12 0 1 1-8.5 3.5" stroke="#145C4C" strokeWidth="2" strokeLinecap="round" />
-      <path d="M14 10.5v6.2h6" stroke="#C9A15A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M24 12a12 12 0 1 1-8.5 3.5" stroke="#0A6B50" strokeWidth="2" strokeLinecap="round" />
+      <path d="M14 10.5v6.2h6" stroke="#D4A44A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

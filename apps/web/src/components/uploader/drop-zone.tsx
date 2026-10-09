@@ -25,13 +25,13 @@ export function DropZone({ onPick, onCamera, touch, max }: { onPick: () => void;
               <PhotoFallback seed={c.seed} />
             </div>
           ))}
-          <span className="absolute -bottom-1 left-1/2 z-20 grid h-12 w-12 -translate-x-1/2 place-items-center rounded-full bg-brand-600 text-white shadow-[0_8px_20px_-6px_rgb(11_107_87/0.8)] transition-transform duration-300 group-hover/drop:scale-110">
+          <span className="absolute -bottom-1 left-1/2 z-20 grid h-12 w-12 -translate-x-1/2 place-items-center rounded-full bg-brand-600 text-white shadow-[0_8px_20px_-6px_rgb(10_107_80/0.8)] transition-transform duration-300 group-hover/drop:scale-110">
             <ImagePlus className="h-6 w-6" />
           </span>
         </div>
         <h3 className="font-display text-[1.85rem] leading-tight text-ink sm:text-[2.1rem]">{touch ? "Agrega tus fotos" : "Arrastra tus fotos aquí"}</h3>
         <p className="mt-2 max-w-md text-[15px] text-ink-2">{touch ? "Elígelas de tu galería o toma una foto. Puedes seleccionar varias a la vez." : "o elígelas desde tu computador. Puedes soltar varias a la vez, incluso una carpeta."}</p>
-        <span className="mt-6 inline-flex h-14 items-center gap-2 rounded-full bg-brand-600 px-7 text-base font-semibold text-white shadow-[0_6px_18px_-6px_rgb(11_107_87/0.7)] transition-colors group-hover/drop:bg-brand-700">
+        <span className="mt-6 inline-flex h-14 items-center gap-2 rounded-full bg-brand-600 px-7 text-base font-semibold text-white shadow-[0_6px_18px_-6px_rgb(10_107_80/0.7)] transition-colors group-hover/drop:bg-brand-700">
           <ImagePlus className="h-5 w-5" /> Elegir fotos
         </span>
         <p className="mt-5 text-[13px] text-ink-3">JPG, PNG, WEBP, AVIF o HEIC · hasta {max} fotos · {touch ? "toma una foto ahora" : "también puedes pegarlas con Ctrl + V"}</p>

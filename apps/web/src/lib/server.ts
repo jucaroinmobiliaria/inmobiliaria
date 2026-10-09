@@ -5,7 +5,7 @@ import type { Role, SessionUser } from "./types";
 
 const API = () => (process.env.API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 
-type ServerOpts = { query?: Record<string, unknown>; revalidate?: number | false; tags?: string[]; auth?: boolean };
+type ServerOpts = { query?: Record<string, unknown>; revalidate?: number | false; tags?: string[]; auth?: boolean; signal?: AbortSignal };
 
 /** Fetch desde Server Components. Público => cacheable (ISR). `auth: true` => reenvía cookies y no cachea. */
 export async function apiServer<T>(path: string, opts: ServerOpts = {}): Promise<T> {
@@ -19,7 +19,10 @@ export async function apiServer<T>(path: string, opts: ServerOpts = {}): Promise
   } else {
     init = { headers, next: { revalidate: opts.revalidate ?? 60, tags: opts.tags } };
   }
-  const res = await fetch(`${API()}${path}${qs(opts.query)}`, init);
+  const res = await fetch(`${API()}${path}${qs(opts.query)}`, {
+    ...init,
+    signal: opts.auth ? AbortSignal.timeout(3500) : undefined,
+  });
   const text = await res.text();
   const data = text ? (() => { try { return JSON.parse(text); } catch { return null; } })() : null;
   if (!res.ok) throw new ApiException(res.status, data?.message ?? `Error ${res.status}`, data?.errors);

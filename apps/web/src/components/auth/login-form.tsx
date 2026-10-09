@@ -11,6 +11,7 @@ import { toast } from "@/lib/toast";
 import { PasswordInput } from "./password-input";
 import { isEmail, readError, type FieldErrors } from "./form-utils";
 import { landingFor } from "./safe-next";
+import { burst } from "@/components/motion/gestures";
 
 const DEMOS = [
   { label: "Usuario", email: "usuario@nido.co", password: "Demo1234!" },
@@ -66,7 +67,7 @@ export function LoginForm({ next, registerHref }: { next: string | null; registe
         <PasswordInput label="Contraseña" name="password" autoComplete="current-password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
         <div className="text-right"><Link href="/recuperar" className="text-[14px] font-semibold text-brand-700 underline-offset-4 hover:underline">¿Olvidaste tu contraseña?</Link></div>
       </div>
-      <Button type="submit" size="lg" loading={busy} className="w-full">Ingresar</Button>
+      <Button type="submit" size="lg" loading={busy} className="w-full" onClick={(e) => burst("door", e.currentTarget)}>Ingresar</Button>
       <p className="text-center text-[15px] text-ink-2">¿Aún no tienes cuenta? <Link href={registerHref} className="font-semibold text-brand-700 underline-offset-4 hover:underline">Crea una gratis</Link></p>
 
       {process.env.NODE_ENV !== "production" && (

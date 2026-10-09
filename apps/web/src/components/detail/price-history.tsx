@@ -27,12 +27,12 @@ export function PriceHistory({ points, currency = "COP" }: { points: { date: str
         <span className="text-sm text-ink-3">Antes {formatPrice(first, currency)}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Historial de precio: de ${formatPrice(first, currency)} a ${formatPrice(last, currency)}`}>
-        <defs><linearGradient id="ph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0b6b57" stopOpacity="0.28" /><stop offset="1" stopColor="#0b6b57" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id="ph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0a6b50" stopOpacity="0.28" /><stop offset="1" stopColor="#0a6b50" stopOpacity="0" /></linearGradient></defs>
         <path d={area} fill="url(#ph)" />
-        <path d={path} fill="none" stroke="#0b6b57" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke="#0a6b50" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {pts.map((p, i) => (
           <g key={p.date + i}>
-            <circle cx={x(+new Date(p.date))} cy={y(p.price)} r="5" fill="#fff" stroke="#0b6b57" strokeWidth="2.5" />
+            <circle cx={x(+new Date(p.date))} cy={y(p.price)} r="5" fill="#fff" stroke="#0a6b50" strokeWidth="2.5" />
             {(i === 0 || i === pts.length - 1) && <text x={x(+new Date(p.date))} y={y(p.price) - 12} textAnchor={i === 0 ? "start" : "end"} className="fill-ink" style={{ font: "600 13px var(--font-sans)" }}>{formatPriceShort(p.price, currency)}</text>}
             {(i === 0 || i === pts.length - 1) && <text x={x(+new Date(p.date))} y={H - 8} textAnchor={i === 0 ? "start" : "end"} className="fill-ink-3" style={{ font: "500 12px var(--font-sans)" }}>{formatDate(p.date, { day: "numeric", month: "short" })}</text>}
           </g>

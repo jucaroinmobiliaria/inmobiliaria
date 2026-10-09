@@ -4,33 +4,33 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
-  /* Papel marfil: el producto vive sobre un lienzo cálido, no sobre un blanco de hospital */
-  --color-canvas: #fffdfb;
-  --color-surface: #f6f1e8;
-  --color-surface-2: #efe6d8;
-  --color-line: #e7dccf;
-  --color-line-strong: #d2c4b2;
-  --color-field: #8d8376;
+  /* Papel cálido de costa: no es blanco de hospital ni beige apagado */
+  --color-canvas: #fffaf4;
+  --color-surface: #f4ebe0;
+  --color-surface-2: #eadfce;
+  --color-line: #e0d2c0;
+  --color-line-strong: #c9b79e;
+  --color-field: #8a7f72;
 
-  --color-ink: #1a1814;
-  --color-ink-2: #534c44;
-  --color-ink-3: #746c62;
+  --color-ink: #171410;
+  --color-ink-2: #4c453c;
+  --color-ink-3: #6f675d;
 
-  /* Manglar Jucaro */
-  --color-brand-50: #f3f6f4;
-  --color-brand-100: #e4eee9;
-  --color-brand-200: #c5ddd2;
-  --color-brand-400: #3d8f78;
-  --color-brand-500: #1f7360;
-  --color-brand-600: #145c4c;
-  --color-brand-700: #0f463a;
-  --color-brand-800: #0c332b;
-  --color-brand-900: #0a241e;
+  /* Manglar vivo — más croma, menos oliva grisáceo */
+  --color-brand-50: #eaf6f1;
+  --color-brand-100: #cfeadb;
+  --color-brand-200: #9fd4c0;
+  --color-brand-400: #2ba07a;
+  --color-brand-500: #0e8262;
+  --color-brand-600: #0a6b50;
+  --color-brand-700: #085240;
+  --color-brand-800: #063b2f;
+  --color-brand-900: #04251e;
 
-  /* Latón */
-  --color-sun: #c9a15a;
-  --color-sun-soft: #f8f1de;
-  --color-sun-ink: #6b4e16;
+  /* Latón de costa */
+  --color-sun: #d4a44a;
+  --color-sun-soft: #f8eed8;
+  --color-sun-ink: #7a5610;
   /* Teja */
   --color-clay: #c4522a;
   --color-clay-soft: #f8ebe4;
@@ -135,71 +135,112 @@
 @keyframes fade-out { to { opacity: 0; } }
 
 /* Gestos de acción: viven fuera del botón, en un escenario fijo */
-.j-burst { position: absolute; width: 84px; height: 84px; margin: -42px 0 0 -42px; display: grid; place-items: center; }
-.j-burst svg { width: 64px; height: 64px; overflow: visible; filter: drop-shadow(0 10px 16px rgb(20 24 20 / 0.18)); }
+.j-burst { position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; display: grid; place-items: center; overflow: visible; }
+.j-burst svg { width: 72px; height: 72px; overflow: visible; filter: drop-shadow(0 12px 18px rgb(20 24 20 / 0.22)); }
 
-.j-plane { animation: j-plane 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.j-trail { animation: j-trail 0.95s ease-out both; }
+.j-plane { animation: j-plane 1.15s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.j-trail { animation: j-trail 1.15s ease-out both; }
 @keyframes j-plane {
-  0% { transform: translate(0, 8px) rotate(-24deg) scale(0.72); opacity: 0; }
-  16% { transform: translate(4px, 10px) rotate(-36deg) scale(1); opacity: 1; }
-  100% { transform: translate(86px, -72px) rotate(18deg) scale(0.62); opacity: 0; }
+  0% { transform: translate(0, 10px) rotate(-28deg) scale(0.55); opacity: 0; }
+  12% { transform: translate(8px, 4px) rotate(-42deg) scale(1.08); opacity: 1; }
+  55% { transform: translate(70px, -48px) rotate(-8deg) scale(0.92); opacity: 1; }
+  100% { transform: translate(150px, -118px) rotate(22deg) scale(0.45); opacity: 0; }
 }
-@keyframes j-trail { 0%, 20% { opacity: 0; } 45% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes j-trail { 0%, 12% { opacity: 0; } 28% { opacity: 1; } 100% { opacity: 0; } }
 
-.j-bin .j-lid { transform-origin: 16px 16px; transform-box: fill-box; }
-.j-burst-trash .j-lid { animation: j-lid 0.9s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
-.j-burst-trash .j-scrap { animation: j-scrap 0.9s cubic-bezier(0.45, 0, 0.8, 1) both; }
+.j-bin { animation: j-bin-pop 1.15s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.j-lid { transform-origin: 16px 17px; transform-box: view-box; }
+.j-burst-trash .j-lid { animation: j-lid 1.15s cubic-bezier(0.34, 1.45, 0.64, 1) both; }
+.j-burst-trash .j-scrap { animation: j-scrap 1.15s cubic-bezier(0.45, 0, 0.8, 1) both; }
+@keyframes j-bin-pop {
+  0% { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+  18% { transform: scale(1.12) rotate(3deg); opacity: 1; }
+  70% { transform: scale(1) rotate(0); opacity: 1; }
+  100% { transform: scale(0.92); opacity: 0; }
+}
 @keyframes j-lid {
   0% { transform: rotate(0); }
-  28% { transform: rotate(-68deg); }
-  68% { transform: rotate(-68deg); }
+  22% { transform: rotate(-82deg); }
+  72% { transform: rotate(-82deg); }
   100% { transform: rotate(0); }
 }
 @keyframes j-scrap {
-  0% { transform: translateY(-12px); opacity: 0; }
-  22% { opacity: 1; transform: translateY(-8px); }
-  62% { transform: translateY(7px); opacity: 1; }
-  100% { transform: translateY(11px); opacity: 0; }
+  0% { transform: translateY(-18px) rotate(-12deg); opacity: 0; }
+  18% { opacity: 1; transform: translateY(-10px) rotate(-6deg); }
+  48% { transform: translateY(4px) rotate(8deg); opacity: 1; }
+  100% { transform: translateY(14px) rotate(12deg); opacity: 0; }
 }
 
-.j-key { transform-origin: 18px 20px; animation: j-key 0.72s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.j-door { animation: j-door-pop 1.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.j-door-leaf { transform-origin: 26px 24px; transform-box: view-box; animation: j-door-swing 1.1s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+@keyframes j-door-pop {
+  0% { transform: scale(0.55); opacity: 0; }
+  18% { transform: scale(1.08); opacity: 1; }
+  75% { opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+@keyframes j-door-swing {
+  0% { transform: perspective(120px) rotateY(0); }
+  35% { transform: perspective(120px) rotateY(-58deg); }
+  70% { transform: perspective(120px) rotateY(-52deg); }
+  100% { transform: perspective(120px) rotateY(-8deg); }
+}
+
+.j-key { transform-origin: 18px 20px; animation: j-key 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 @keyframes j-key {
-  0% { transform: rotate(-8deg) scale(0.7); opacity: 0; }
-  35% { transform: rotate(-32deg) scale(1); opacity: 1; }
-  68% { transform: rotate(10deg); }
-  100% { transform: rotate(0); opacity: 0; }
+  0% { transform: rotate(-18deg) scale(0.55); opacity: 0; }
+  28% { transform: rotate(-48deg) scale(1.12); opacity: 1; }
+  58% { transform: rotate(16deg) scale(1); }
+  100% { transform: rotate(0) scale(0.9); opacity: 0; }
 }
 
-.j-stamp { transform-origin: center; animation: j-stamp 0.62s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.j-stamp { transform-origin: center; animation: j-stamp 0.78s cubic-bezier(0.2, 1.45, 0.4, 1) both; }
 @keyframes j-stamp {
-  0% { transform: translateY(-22px) rotate(-14deg) scale(1.35); opacity: 0; }
-  55% { transform: translateY(2px) rotate(3deg) scale(0.94); opacity: 1; }
+  0% { transform: translateY(-34px) rotate(-18deg) scale(1.45); opacity: 0; }
+  48% { transform: translateY(4px) rotate(4deg) scale(0.9); opacity: 1; }
+  68% { transform: translateY(0) rotate(-2deg) scale(1.06); }
   100% { transform: translateY(0) rotate(0) scale(1); opacity: 0; }
 }
 
-.j-seal { transform-origin: center; animation: j-seal 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.j-seal { transform-origin: center; animation: j-seal 0.85s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes j-seal {
-  0% { transform: scale(0.2); opacity: 0; }
-  55% { transform: scale(1.12); opacity: 1; }
-  100% { transform: scale(1); opacity: 0; }
+  0% { transform: scale(0.12) rotate(-20deg); opacity: 0; }
+  45% { transform: scale(1.2) rotate(6deg); opacity: 1; }
+  70% { transform: scale(0.94) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0); opacity: 0; }
 }
 
+.j-blinds { animation: j-blinds-pop 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .j-blinds .j-slat { transform-origin: center; }
-.j-burst-pause .j-slat { animation: j-close 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.j-burst-play .j-slat { animation: j-open 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@keyframes j-close { from { transform: scaleY(0.15); opacity: 0.3; } to { transform: scaleY(1); opacity: 1; } }
-@keyframes j-open { from { transform: scaleY(1); } to { transform: scaleY(0.2); opacity: 0.35; } }
+.j-burst-pause .j-slat { animation: j-close 0.85s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.j-burst-play .j-slat { animation: j-open 0.85s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes j-blinds-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  20% { transform: scale(1.08); opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes j-close { from { transform: scaleY(0.12); opacity: 0.25; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes j-open { from { transform: scaleY(1); } to { transform: scaleY(0.12); opacity: 0.25; } }
 
-.j-sheet { animation: j-sheet 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@keyframes j-sheet { from { transform: translate(0, 4px); } to { transform: translate(8px, -8px); } }
+.j-copy { animation: j-blinds-pop 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.j-sheet { animation: j-sheet 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes j-sheet {
+  0% { transform: translate(0, 6px) rotate(0); }
+  55% { transform: translate(12px, -14px) rotate(8deg); }
+  100% { transform: translate(16px, -18px) rotate(10deg); }
+}
 
-.j-renew { transform-origin: 24px 24px; animation: j-spin 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@keyframes j-spin { from { transform: rotate(-140deg); opacity: 0; } to { transform: rotate(0); opacity: 1; } }
+.j-renew { transform-origin: 24px 24px; animation: j-spin 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes j-spin {
+  0% { transform: rotate(-200deg) scale(0.6); opacity: 0; }
+  55% { transform: rotate(12deg) scale(1.08); opacity: 1; }
+  100% { transform: rotate(0) scale(1); opacity: 0; }
+}
 
-.j-heart { transform-origin: center; animation: j-heart 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.j-heart { transform-origin: center; animation: j-heart 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 @keyframes j-heart {
-  0% { transform: scale(0.4); opacity: 0; }
-  45% { transform: scale(1.25); opacity: 1; }
-  100% { transform: scale(1) translateY(-10px); opacity: 0; }
+  0% { transform: scale(0.25); opacity: 0; }
+  38% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(0.85) translateY(-22px); opacity: 0; }
 }

@@ -19,7 +19,7 @@ export function sizedUrl(src: string, width: number) {
 }
 
 const PALETTES = [
-  ["#dbeee6", "#a9d4c3", "#0b6b57"], ["#fbefd2", "#f2cf86", "#7a4a00"], ["#e4ebf5", "#b9cbe6", "#27457a"],
+  ["#cfeadb", "#9fd4c0", "#0a6b50"], ["#f8eed8", "#f2cf86", "#7a5610"], ["#e4ebf5", "#b9cbe6", "#27457a"],
   ["#f3e3dc", "#e2b9a5", "#7b3a22"], ["#e3efe0", "#b5d6ac", "#2f5d27"],
 ];
 

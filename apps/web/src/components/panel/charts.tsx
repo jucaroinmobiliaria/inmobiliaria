@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { formatDate, formatNumber } from "@/lib/format";
 
 /* Paleta categórica validada (verde marca · ámbar · azul), pasa CVD y contraste ≥ 3:1 */
-export const SERIES_COLORS = { green: "#145c4c", amber: "#c9a15a", blue: "#2a78d6" } as const;
+export const SERIES_COLORS = { green: "#0a6b50", amber: "#d4a44a", blue: "#2a78d6" } as const;
 
 /* =====================================================================
  * Conteo animado
