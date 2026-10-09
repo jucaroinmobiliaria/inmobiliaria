@@ -34,6 +34,7 @@ export function RegisterForm({ next: _next, initialRole, loginHref }: { next: st
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(true);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -52,6 +53,7 @@ export function RegisterForm({ next: _next, initialRole, loginHref }: { next: st
     try {
       const r = await register({ name: name.trim(), email: email.trim(), password, role, ...(phone.trim() ? { phone: phone.trim() } : {}) });
       setPendingEmail(r.email);
+      setEmailSent(r.emailSent !== false);
     } catch (err) {
       const r = readError(err);
       setErrors(r.fields);
@@ -65,8 +67,11 @@ export function RegisterForm({ next: _next, initialRole, loginHref }: { next: st
     if (!pendingEmail || busy) return;
     setBusy(true);
     try {
-      await api("/auth/resend-verification", { body: { email: pendingEmail } });
-      toast.success("Si el correo sigue pendiente, te enviamos el enlace de nuevo.");
+      const r = await api<{ ok: true; emailSent?: boolean }>("/auth/resend-verification", { body: { email: pendingEmail } });
+      const sent = r.emailSent !== false;
+      setEmailSent(sent);
+      if (sent) toast.success("Si el correo sigue pendiente, te enviamos el enlace de nuevo.");
+      else toast.error("El correo no salió. En Supabase configura el SMTP en Authentication → Emails y vuelve a reenviar.");
     } catch (err) {
       const r = readError(err);
       toast.error(r.form ?? "No pudimos reenviar el correo. Inténtalo de nuevo.");
@@ -79,8 +84,14 @@ export function RegisterForm({ next: _next, initialRole, loginHref }: { next: st
     return (
       <div className="rounded-[24px] bg-brand-50 p-6" role="status">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white"><Mail className="h-6 w-6" /></span>
-        <h2 className="mt-4 font-display text-[1.7rem] leading-tight">Revisa tu correo</h2>
-        <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">Te enviamos un enlace a <strong className="font-semibold text-ink">{pendingEmail}</strong> para confirmar y crear tu cuenta. Hasta que lo abras, la cuenta no existirá. Puede tardar un par de minutos; mira también en spam.</p>
+        <h2 className="mt-4 font-display text-[1.7rem] leading-tight">{emailSent ? "Revisa tu correo" : "No pudimos enviar el correo"}</h2>
+        <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">
+          {emailSent ? (
+            <>Te enviamos un enlace a <strong className="font-semibold text-ink">{pendingEmail}</strong> para confirmar y crear tu cuenta. Hasta que lo abras, no podrás entrar. Puede tardar un par de minutos; mira también en spam. El correo ya figura en Authentication de Supabase.</>
+          ) : (
+            <>Guardamos <strong className="font-semibold text-ink">{pendingEmail}</strong> en Authentication de Supabase, pero el mensaje no salió. Abre el proyecto, entra a Authentication → Emails y configura el SMTP. Después pulsa reenviar.</>
+          )}
+        </p>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <Button loading={busy} onClick={() => void resend()}>Reenviar correo</Button>
           <Button variant="outline" onClick={() => setPendingEmail(null)}>Usar otro correo</Button>

@@ -251,7 +251,7 @@ const sessionUserSpec = O({
   profile: O({ displayName: "ns", bio: "ns", whatsapp: "ns", company: "ns", website: "ns", city: "ns" }), unreadNotifications: "n",
 });
 const registerPendingSpec = O({
-  ok: "b", needsVerification: "b", email: "s", name: "s", verifyToken: OPT("s"),
+  ok: "b", needsVerification: "b", email: "s", name: "s", emailSent: "b", verifyToken: OPT("s"),
 });
 const notificationSpec = O({ id: "s", type: "s", title: "s", body: "ns", link: "ns", readAt: "niso", createdAt: "iso" });
 const savedSearchSpec = O({ id: "s", name: "s", query: "any", frequency: S("NONE", "INSTANT", "DAILY", "WEEKLY"), createdAt: "iso", newCount: "n" });

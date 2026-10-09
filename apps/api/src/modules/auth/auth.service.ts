@@ -10,6 +10,7 @@ import { Prisma, PrismaService } from "../../common/prisma.service.js";
 import type { Role } from "../../generated/prisma/client.js";
 import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import type { ChangePasswordDto, LoginDto, RegisterDto, ResetDto, UpdateMeDto } from "./dto.js";
+import { SupabaseAuthService } from "./supabase-auth.service.js";
 
 const VERIFY_TTL_MS = 24 * 3600_000;
 const RESEND_COOLDOWN_MS = 45_000;
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly mailer: MailerService,
+    private readonly supabaseAuth: SupabaseAuthService,
   ) {}
 
   /* ---------- Cookies ---------- */
@@ -119,8 +121,9 @@ export class AuthService {
         },
       });
     });
-    await this.sendVerifyMail(dto.email, dto.name, token);
-    const out: RegisterPendingDTO = { ok: true, needsVerification: true, email: dto.email, name: dto.name };
+    await this.supabaseAuth.ensureSignup({ email: dto.email, password: dto.password, name: dto.name, phone: dto.phone ?? null, role });
+    const emailSent = await this.sendVerifyMail(dto.email, dto.name, token);
+    const out: RegisterPendingDTO = { ok: true, needsVerification: true, email: dto.email, name: dto.name, emailSent };
     if (!env.isProd) out.verifyToken = token;
     return out;
   }
@@ -130,6 +133,47 @@ export class AuthService {
     if (!row || row.usedAt || row.expiresAt < new Date()) {
       throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
     }
+    return this.openFromVerification(row, meta);
+  }
+
+  async resendVerification(email: string): Promise<boolean> {
+    const pending = await this.prisma.emailVerification.findFirst({
+      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!pending) return true;
+    if (Date.now() - pending.createdAt.getTime() < RESEND_COOLDOWN_MS) return true;
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.emailVerification.update({
+      where: { id: pending.id },
+      data: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
+    });
+    return this.sendVerifyMail(email, pending.name, token);
+  }
+
+  /** El access_token del enlace de Supabase crea la cuenta local y abre la sesión. */
+  async verifySupabase(accessToken: string, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const { email } = this.supabaseAuth.verifyAccessToken(accessToken);
+    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true, status: true, role: true } });
+    if (existing) {
+      if (existing.status === "BLOCKED") throw new ForbiddenException("Tu cuenta está bloqueada. Contacta a soporte");
+      const tokens = await this.issue(existing.id, existing.role, meta);
+      return { user: await this.sessionUser(existing.id), tokens };
+    }
+    const row = await this.prisma.emailVerification.findFirst({
+      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!row) {
+      throw new BadRequestException({ message: "No encontramos una solicitud vigente para este correo. Vuelve a registrarte.", errors: { token: ["No encontramos una solicitud vigente para este correo. Vuelve a registrarte."] } });
+    }
+    return this.openFromVerification(row, meta);
+  }
+
+  private async openFromVerification(
+    row: { id: string; email: string; name: string; phone: string | null; passwordHash: string; role: Role; expiresAt: Date },
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
     const taken = await this.prisma.user.findUnique({ where: { email: row.email }, select: { id: true } });
     if (taken) throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
     const claimed = await this.prisma.emailVerification.updateMany({
@@ -153,6 +197,7 @@ export class AuthService {
         select: { id: true, role: true },
       });
       await this.audit.log({ actorId: user.id, action: "auth.register", entity: "User", entityId: user.id, meta: { role: user.role } });
+      await this.supabaseAuth.confirmEmail(row.email);
       const tokens = await this.issue(user.id, user.role, meta);
       return { user: await this.sessionUser(user.id), tokens };
     } catch (e) {
@@ -163,24 +208,10 @@ export class AuthService {
     }
   }
 
-  async resendVerification(email: string): Promise<void> {
-    const pending = await this.prisma.emailVerification.findFirst({
-      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!pending) return;
-    if (Date.now() - pending.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
-    const token = randomBytes(32).toString("base64url");
-    await this.prisma.emailVerification.update({
-      where: { id: pending.id },
-      data: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
-    });
-    await this.sendVerifyMail(email, pending.name, token);
-  }
-
-  private async sendVerifyMail(to: string, name: string, token: string): Promise<void> {
+  private async sendVerifyMail(to: string, name: string, token: string): Promise<boolean> {
     const url = `${env.webUrl}/confirmar-correo?token=${token}`;
-    await this.mailer.send({
+    const supabaseSent = await this.supabaseAuth.sendConfirmation(to);
+    const own = await this.mailer.send({
       to,
       subject: `Confirma tu correo en ${env.SITE_NAME}`,
       text: `Hola ${name},\n\nPara crear tu cuenta, abre este enlace (vence en 24 horas):\n${url}\n\nSi no pediste esta cuenta, ignora este mensaje. No se creará nada.`,
@@ -193,6 +224,9 @@ export class AuthService {
         { label: "Confirmar correo", url },
       ),
     });
+    const ownDelivered = this.mailer.driver === "resend" && own;
+    const localPreview = this.mailer.driver === "console" && !env.isProd;
+    return supabaseSent || ownDelivered || localPreview;
   }
 
   private getDummyHash(): Promise<string> {
@@ -283,7 +317,7 @@ export class AuthService {
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto, meta: ReqMeta): Promise<IssuedTokens> {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true, role: true } });
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, passwordHash: true, role: true } });
     if (!u) throw new UnauthorizedException("La sesión ya no es válida");
     if (!(await bcrypt.compare(dto.current, u.passwordHash))) {
       await this.audit.log({ actorId: userId, action: "auth.change_password_failed", entity: "User", entityId: userId });
@@ -295,6 +329,7 @@ export class AuthService {
       this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
     ]);
     await this.audit.log({ actorId: userId, action: "auth.change_password", entity: "User", entityId: userId });
+    await this.supabaseAuth.setPassword(u.email, dto.next);
     return this.issue(userId, u.role, meta);
   }
 
@@ -326,5 +361,7 @@ export class AuthService {
       this.prisma.refreshToken.updateMany({ where: { userId: row.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
     ]);
     await this.audit.log({ actorId: row.userId, action: "auth.reset_password", entity: "User", entityId: row.userId });
+    const owner = await this.prisma.user.findUnique({ where: { id: row.userId }, select: { email: true } });
+    if (owner) await this.supabaseAuth.setPassword(owner.email, dto.password);
   }
 }

@@ -5,8 +5,8 @@ import { ZodPipe } from "../../common/zod.js";
 import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import { AuthService, type ReqMeta } from "./auth.service.js";
 import {
-  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type ResendVerificationDto, type UpdateMeDto, type VerifyEmailDto,
-  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resendVerificationSchema, resetSchema, updateMeSchema, verifyEmailSchema,
+  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type ResendVerificationDto, type UpdateMeDto, type VerifyEmailDto, type VerifySupabaseDto,
+  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resendVerificationSchema, resetSchema, updateMeSchema, verifyEmailSchema, verifySupabaseSchema,
 } from "./dto.js";
 
 const metaOf = (req: Request): ReqMeta => ({ ip: req.ip, userAgent: req.headers["user-agent"] });
@@ -27,10 +27,17 @@ export class AuthController {
     return { user };
   }
 
+  @Public() @AuthLimit() @Post("verify-supabase") @HttpCode(200)
+  async verifySupabase(@Body(new ZodPipe(verifySupabaseSchema)) dto: VerifySupabaseDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ user: SessionUser }> {
+    const { user, tokens } = await this.auth.verifySupabase(dto.accessToken, metaOf(req));
+    this.auth.setCookies(res, tokens);
+    return { user };
+  }
+
   @Public() @AuthLimit() @Post("resend-verification") @HttpCode(200)
-  async resendVerification(@Body(new ZodPipe(resendVerificationSchema)) dto: ResendVerificationDto): Promise<{ ok: true }> {
-    await this.auth.resendVerification(dto.email);
-    return { ok: true };
+  async resendVerification(@Body(new ZodPipe(resendVerificationSchema)) dto: ResendVerificationDto): Promise<{ ok: true; emailSent: boolean }> {
+    const emailSent = await this.auth.resendVerification(dto.email);
+    return { ok: true, emailSent };
   }
 
   @Public() @AuthLimit() @Post("login") @HttpCode(200)

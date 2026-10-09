@@ -60,5 +60,10 @@ export const verifyEmailSchema = z.object({
 });
 export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
 
+export const verifySupabaseSchema = z.object({
+  accessToken: z.string({ error: "El enlace no es válido" }).min(20, "El enlace no es válido").max(8000, "El enlace no es válido"),
+});
+export type VerifySupabaseDto = z.infer<typeof verifySupabaseSchema>;
+
 export const resendVerificationSchema = forgotSchema;
 export type ResendVerificationDto = ForgotDto;

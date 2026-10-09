@@ -56,6 +56,8 @@ export interface RegisterPendingDTO {
   needsVerification: true;
   email: string;
   name: string;
+  /** False cuando ni Supabase ni Resend lograron entregar el correo. */
+  emailSent: boolean;
   /** Solo en desarrollo, para pruebas. Nunca se envía en producción. */
   verifyToken?: string;
 }
