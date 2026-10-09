@@ -1,35 +1,42 @@
 import Link from "next/link";
 import { SITE } from "@/lib/site";
 import { cn } from "@/lib/cn";
-import { BRAND_GOLD, BRAND_GREEN, MARK_C, MARK_J } from "@/lib/brand-mark";
+import { BRAND_GOLD, BRAND_GREEN, MARK_C, MARK_J, MARK_PLATE_RX, MARK_STROKE, MARK_WINDOW } from "@/lib/brand-mark";
 
-function Mark({ ink, gold }: { ink: string; gold: string }) {
+function Mark({ ink, gold, assemble }: { ink: string; gold: string; assemble?: boolean }) {
   return (
     <>
-      <path d={MARK_C} fill="none" stroke={ink} strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={MARK_J} fill="none" stroke={ink} strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="23.6" cy="19.4" r="2.15" fill={gold} />
+      <g className={assemble ? "mark-c" : undefined}>
+        <path d={MARK_C} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+      </g>
+      <g className={assemble ? "mark-j" : undefined}>
+        <path d={MARK_J} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+      </g>
+      <g className={assemble ? "mark-window" : undefined}>
+        <rect x={MARK_WINDOW.x} y={MARK_WINDOW.y} width={MARK_WINDOW.size} height={MARK_WINDOW.size} rx={MARK_WINDOW.rx} fill={gold} />
+      </g>
     </>
   );
 }
 
-/** Isotipo: monograma JC que arma una casa — dosel de júcaro (C) y pilar (J), con fruto de latón. */
-export function LogoMark({ className, invert = false }: { className?: string; invert?: boolean }) {
+/** Isotipo: monograma JC que arma una casa — dosel (C) y jamba (J), con ventana de latón. */
+export function LogoMark({ className, invert = false, animate = false }: { className?: string; invert?: boolean; animate?: boolean }) {
   const plate = invert ? "#fff" : "currentColor";
   const ink = invert ? BRAND_GREEN : "#fff";
   return (
-    <svg viewBox="0 0 40 40" className={className} aria-hidden>
-      <rect width="40" height="40" rx="11" fill={plate} />
-      <Mark ink={ink} gold={BRAND_GOLD} />
+    <svg viewBox="0 0 40 40" className={cn(animate && "mark-assemble", className)} aria-hidden overflow="visible">
+      <rect width="40" height="40" rx={MARK_PLATE_RX} fill={plate} />
+      <Mark ink={ink} gold={BRAND_GOLD} assemble={animate} />
     </svg>
   );
 }
 
-export function Logo({ light = false, className }: { light?: boolean; className?: string }) {
+export function Logo({ light = false, animate = false, className }: { light?: boolean; animate?: boolean; className?: string }) {
   return (
     <Link href="/" aria-label={`${SITE.name} — inicio`} className={cn("group inline-flex items-center gap-2.5", className)}>
       <LogoMark
         invert={light}
+        animate={animate}
         className={cn(
           "h-10 w-10 transition-transform duration-500 ease-[cubic-bezier(0.34,1.4,0.64,1)] group-hover:-rotate-6 group-hover:scale-105",
           !light && "text-brand-600",

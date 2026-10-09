@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { formatNumber, formatPrice } from "@/lib/format";
 import { OPERATION_LABEL } from "@/lib/site";
 import type { ImageDTO, PublicationCard } from "@/lib/types";
-import { Check, CircleAlert, Clock, Eye, MapPin, Pencil, Phone, MessageCircle, Rocket } from "@/components/uploader/icons";
+import { Check, CircleAlert, Clock, Eye, MapPin, Pencil, MessageCircle, Rocket } from "@/components/uploader/icons";
 import { Callout } from "./fields";
 import { Checklist } from "./preview-panel";
 import { CONDITION_LABEL, type CheckItem } from "./steps";
@@ -146,8 +146,7 @@ export function StepReview({ draft, catalog, user, go, type, city, card, images,
             <div className="mb-3 flex items-center justify-between"><h3 className="text-[15px] font-semibold">Cómo te contactarán</h3><EditLink step={9} go={go} /></div>
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-ink shadow-sm"><MessageCircle className="h-4 w-4 text-brand-600" /> Enviar mensaje</span>
-              {draft.showPhone && user.phone && <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-ink shadow-sm"><Phone className="h-4 w-4 text-brand-600" /> Llamar</span>}
-              {draft.showWhatsapp && (user.profile.whatsapp ?? user.phone) && <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-ink shadow-sm"><WhatsAppIcon size={16} className="text-brand-600" /> WhatsApp</span>}
+              <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-ink shadow-sm"><WhatsAppIcon size={16} className="text-brand-600" /> WhatsApp Jucaro</span>
               {(draft.videoUrl || draft.tourUrl) && <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-ink shadow-sm"><Eye className="h-4 w-4 text-brand-600" /> {draft.tourUrl ? "Tour virtual" : "Video"}</span>}
             </div>
           </section>

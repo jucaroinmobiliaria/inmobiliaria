@@ -1,14 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useRef } from "react";
-import { Select } from "@/components/ui/form";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Switch } from "@/components/ui/form";
 import { Input } from "@/components/ui/form";
-import { cn } from "@/lib/cn";
-import { Callout, FieldBlock, SectionTitle } from "./fields";
+import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import type { CatalogCityHit, CatalogNeighborhood } from "@/lib/types";
+import { Callout, SectionTitle } from "./fields";
+import { PlaceField, type PlaceOption } from "./place-field";
 import type { StepProps } from "./types";
-import { Info, MapPin } from "@/components/ui/icon";
+import { Info } from "@/components/ui/icon";
 
 const MapPicker = dynamic(() => import("./map-picker"), {
   ssr: false,
@@ -17,9 +19,57 @@ const MapPicker = dynamic(() => import("./map-picker"), {
 
 const COLOMBIA = { lat: 4.65, lng: -74.1, zoom: 5 };
 
-export function StepLocation({ draft, catalog, update, errors, city }: StepProps) {
-  const hood = city?.neighborhoods.find((n) => n.id === draft.neighborhoodId);
+function toCityOpt(c: { id: string; name: string; department: string }): PlaceOption {
+  return { id: c.id, label: c.name, sublabel: c.department };
+}
+
+export function StepLocation({ draft, catalog, update, errors, city: catalogCity }: StepProps) {
+  const [cities, setCities] = useState<CatalogCityHit[]>(() =>
+    catalog.cities.map((c) => ({ id: c.id, slug: c.slug, name: c.name, department: c.department, lat: c.lat, lng: c.lng })),
+  );
+  const [hoods, setHoods] = useState<CatalogNeighborhood[]>(catalogCity?.neighborhoods ?? []);
+  const [cityQuery, setCityQuery] = useState("");
+  const [hoodQuery, setHoodQuery] = useState("");
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [hoodsLoading, setHoodsLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const touched = useRef(draft.lat != null && draft.lng != null);
+
+  const city = useMemo(
+    () => cities.find((c) => c.id === draft.cityId) ?? (catalogCity ? { id: catalogCity.id, slug: catalogCity.slug, name: catalogCity.name, department: catalogCity.department, lat: catalogCity.lat, lng: catalogCity.lng } : undefined),
+    [cities, draft.cityId, catalogCity],
+  );
+  const hood = hoods.find((n) => n.id === draft.neighborhoodId) ?? catalogCity?.neighborhoods.find((n) => n.id === draft.neighborhoodId);
+
+  useEffect(() => {
+    let alive = true;
+    setCitiesLoading(true);
+    api<CatalogCityHit[]>("/catalog/cities")
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+        setCities((prev) => {
+          const map = new Map(prev.map((c) => [c.id, c]));
+          for (const c of rows) map.set(c.id, c);
+          return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+        });
+      })
+      .catch(() => { /* el catálogo del asistente sigue siendo el respaldo */ })
+      .finally(() => { if (alive) setCitiesLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!draft.cityId) { setHoods([]); return; }
+    let alive = true;
+    setHoodsLoading(true);
+    const fromCatalog = catalog.cities.find((c) => c.id === draft.cityId)?.neighborhoods ?? [];
+    if (fromCatalog.length) setHoods(fromCatalog);
+    api<CatalogNeighborhood[]>("/catalog/neighborhoods", { query: { cityId: draft.cityId } })
+      .then((rows) => { if (alive && Array.isArray(rows)) setHoods(rows); })
+      .catch(() => {})
+      .finally(() => { if (alive) setHoodsLoading(false); });
+    return () => { alive = false; };
+  }, [draft.cityId, catalog.cities]);
 
   const center = useMemo(() => {
     if (hood) return { lat: hood.lat, lng: hood.lng, zoom: 14.5 };
@@ -28,54 +78,80 @@ export function StepLocation({ draft, catalog, update, errors, city }: StepProps
   }, [city, hood]);
   const flyKey = `${city?.id ?? "-"}:${hood?.id ?? "-"}`;
 
-  const pickCity = (id: string) => {
-    if (id === draft.cityId) return;
-    // Otra ciudad = el pin anterior ya no sirve: se reinicia y el mapa vuela a la nueva ciudad.
+  const pickCity = (opt: PlaceOption) => {
+    setCityQuery("");
+    if (opt.id === draft.cityId) return;
     touched.current = false;
-    update({ cityId: id, neighborhoodId: null, lat: null, lng: null });
+    setHoodQuery("");
+    update({ cityId: opt.id, neighborhoodId: null, lat: null, lng: null });
   };
-  const pickHood = (id: string) => {
-    const nid = id || null;
-    const h = city?.neighborhoods.find((n) => n.id === nid);
-    const patch: Parameters<StepProps["update"]>[0] = { neighborhoodId: nid };
-    if (h && !touched.current) { patch.lat = h.lat; patch.lng = h.lng; }
+  const applyHood = (n: CatalogNeighborhood) => {
+    setHoodQuery("");
+    const patch: Parameters<StepProps["update"]>[0] = { neighborhoodId: n.id };
+    if (!touched.current) { patch.lat = n.lat; patch.lng = n.lng; }
     update(patch);
+  };
+  const pickHood = (opt: PlaceOption) => {
+    if (opt.id === "__create__") { void createHood(opt.label); return; }
+    const n = hoods.find((h) => h.id === opt.id);
+    if (n) applyHood(n);
+  };
+  const createHood = async (name: string) => {
+    if (!draft.cityId || creating) return;
+    setCreating(true);
+    try {
+      const n = await api<CatalogNeighborhood>("/catalog/neighborhoods", { method: "POST", body: { cityId: draft.cityId, name } });
+      setHoods((prev) => prev.some((h) => h.id === n.id) ? prev : [...prev, n].sort((a, b) => a.name.localeCompare(b.name, "es")));
+      applyHood(n);
+    } catch {
+      toast.error("No pudimos guardar el barrio. Inténtalo de nuevo.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const pin = draft.lat != null && draft.lng != null ? { lat: draft.lat, lng: draft.lng } : null;
+  const cityValue = city ? toCityOpt(city) : null;
+  const hoodValue = hood ? { id: hood.id, label: hood.name } : null;
+  const cityOptions = cities.map(toCityOpt);
+  const hoodOptions = hoods.map((n) => ({ id: n.id, label: n.name }));
 
   return (
     <div className="grid gap-8">
       <div className="grid gap-5">
-        <FieldBlock label="Ciudad" error={errors.cityId}>
-          {catalog.cities.length <= 8 ? (
-            <div role="radiogroup" aria-label="Ciudad" className="flex flex-wrap gap-2">
-              {catalog.cities.map((c) => {
-                const on = draft.cityId === c.id;
-                return (
-                  <button key={c.id} type="button" role="radio" aria-checked={on} onClick={() => pickCity(c.id)}
-                    className={cn("inline-flex h-12 items-center gap-2 rounded-full border px-5 text-[15px] font-semibold transition-all active:scale-95", on ? "border-brand-700 bg-brand-700 text-white" : "border-line-strong bg-white text-ink hover:border-ink")}>
-                    <MapPin className="h-4 w-4 opacity-70" />{c.name}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <Select value={draft.cityId ?? ""} onChange={(e) => pickCity(e.target.value)} aria-label="Ciudad">
-              <option value="" disabled>Selecciona una ciudad</option>
-              {catalog.cities.map((c) => <option key={c.id} value={c.id}>{c.name}, {c.department}</option>)}
-            </Select>
-          )}
-        </FieldBlock>
+        <PlaceField
+          label="Ciudad"
+          error={errors.cityId}
+          value={cityValue}
+          placeholder="Escribe una ciudad o municipio"
+          options={cityOptions}
+          loading={citiesLoading}
+          query={cityQuery}
+          onQuery={setCityQuery}
+          onPick={pickCity}
+          onClear={() => { setCityQuery(""); }}
+          hint={cities.length > 8 ? `Busca entre ${cities.length.toLocaleString("es-CO")} municipios de Colombia.` : undefined}
+          empty={cityQuery.trim() ? `Sin coincidencias para “${cityQuery.trim()}”. Prueba con otro nombre o el departamento.` : citiesLoading ? "Cargando ciudades…" : `Escribe para buscar. Hay ${cities.length.toLocaleString("es-CO")} municipios.`}
+        />
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Select
-            label="Barrio o sector" value={draft.neighborhoodId ?? ""} onChange={(e) => pickHood(e.target.value)} disabled={!city}
-            hint={city ? "Opcional, pero ayuda mucho en las búsquedas." : "Primero elige la ciudad."}
-          >
-            <option value="">{city ? "Selecciona un barrio" : "—"}</option>
-            {city?.neighborhoods.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
-          </Select>
+          <PlaceField
+            label="Barrio o sector"
+            hint={city ? "Opcional. Si no aparece, escríbelo y elígelo para agregarlo." : "Primero elige la ciudad."}
+            error={errors.neighborhoodId}
+            value={hoodValue}
+            placeholder={city ? "Escribe el barrio o sector" : "Elige la ciudad primero"}
+            disabled={!city || creating}
+            options={hoodOptions}
+            loading={hoodsLoading || creating}
+            query={hoodQuery}
+            onQuery={setHoodQuery}
+            onPick={pickHood}
+            onClear={() => { setHoodQuery(""); update({ neighborhoodId: null }); }}
+            empty={hoodQuery.trim() ? `No hay un barrio con ese nombre. Elige “Usar «${hoodQuery.trim()}»” para agregarlo.` : "Aún no hay barrios en esta ciudad. Escribe el tuyo para agregarlo."}
+            allowCreate
+            createHint="Agregar este barrio"
+          />
           <Input
             label="Dirección" placeholder="Ej: Carrera 43A # 1 Sur - 50" value={draft.address ?? ""} maxLength={160} autoComplete="street-address"
             onChange={(e) => update({ address: e.target.value || null })} hint="Opcional."

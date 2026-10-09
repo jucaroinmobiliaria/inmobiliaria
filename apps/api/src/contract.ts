@@ -61,6 +61,10 @@ export interface CatalogCity {
   count: number; // publicaciones PUBLISHED
   neighborhoods: CatalogNeighborhood[];
 }
+/** Ciudad sin barrios anidados (búsqueda / listado ligero). */
+export interface CatalogCityHit {
+  id: string; slug: string; name: string; department: string; lat: number; lng: number;
+}
 export interface Catalog { types: CatalogType[]; amenities: CatalogAmenity[]; cities: CatalogCity[] }
 
 export interface SuggestItem {
@@ -151,6 +155,8 @@ export interface PublicationDetail extends PublicationCard {
   viewCount: number;
   favoriteCount: number;
   contact: { phone: string | null; whatsapp: string | null };
+  /** Solo ADMIN: teléfono y WhatsApp reales del anunciante. Ausente para el resto. */
+  ownerContact?: { phone: string | null; whatsapp: string | null };
   advertiser: Advertiser;
   priceHistory: { date: string; price: number }[];
   similar: PublicationCard[];
@@ -313,7 +319,10 @@ export interface AdminOverview {
   series: { date: string; users: number; publications: number; inquiries: number }[];
   byCity: { name: string; count: number }[];
 }
-export interface AdminPublicationRow extends MyPublicationRow { owner: { id: string; name: string; email: string; verified: boolean }; reportCount: number }
+export interface AdminPublicationRow extends MyPublicationRow {
+  owner: { id: string; name: string; email: string; verified: boolean; phone: string | null; whatsapp: string | null };
+  reportCount: number;
+}
 export interface AdminUserRow {
   id: string; name: string; email: string; phone: string | null; role: Role; status: "ACTIVE" | "BLOCKED";
   verified: boolean; createdAt: string; lastLoginAt: string | null; listings: number;

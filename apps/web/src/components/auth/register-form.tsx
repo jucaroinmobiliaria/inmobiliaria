@@ -6,7 +6,9 @@ import { useState, type FormEvent } from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input } from "@/components/ui/form";
-import { Check, Mail, Phone, Search, User } from "@/components/ui/icon";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { Check, Mail, Search, User } from "@/components/ui/icon";
+import { isValidPhone } from "@/lib/phone";
 import { Handshake, Key } from "@/components/search/icons";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
@@ -42,7 +44,7 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
     const local: FieldErrors = {};
     if (name.trim().length < 2) local.name = "Cuéntanos tu nombre.";
     if (!isEmail(email)) local.email = "Escribe un correo válido, por ejemplo nombre@correo.com.";
-    if (phone.trim() && phone.replace(/\D/g, "").length < 7) local.phone = "Revisa el número de teléfono.";
+    if (phone.trim() && !isValidPhone(phone)) local.phone = "Revisa el número de teléfono.";
     if (password.length < 8) local.password = "Usa al menos 8 caracteres.";
     if (!terms) local.terms = "Debes aceptar los términos para crear tu cuenta.";
     setErrors(local); setFormError(null);
@@ -84,7 +86,7 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
 
       <Input label="Nombre completo" name="name" autoComplete="name" placeholder="Ana María Restrepo" leading={<User className="h-[18px] w-[18px]" />} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
       <Input label="Correo electrónico" type="email" name="email" autoComplete="email" inputMode="email" placeholder="nombre@correo.com" leading={<Mail className="h-[18px] w-[18px]" />} value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-      <Input label="Celular (opcional)" type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="300 123 4567" hint="Solo lo verá quien te escriba si tú lo compartes." leading={<Phone className="h-[18px] w-[18px]" />} value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
+      <PhoneInput label="Celular (opcional)" name="phone" value={phone} onChange={setPhone} error={errors.phone} hint="El equipo de Jucaro lo usa para coordinar. No se muestra en los avisos públicos." />
       <div className="grid gap-3">
         <PasswordInput label="Contraseña" name="password" autoComplete="new-password" placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
         <StrengthMeter value={password} />

@@ -8,6 +8,7 @@ import { blurCoords } from "./geo.js";
 import type { CardRow, DetailRow, DraftRow, MyRow } from "./include.js";
 import { buildPath } from "./seo.js";
 import type { Amenity, PropertyImage } from "../generated/prisma/client.js";
+import { JUCARO_WHATSAPP } from "./brand.js";
 
 export const DAY_MS = 86_400_000;
 
@@ -103,7 +104,7 @@ export function toCard(p: CardRow, favIds?: ReadonlySet<string>, now = new Date(
 
 export function toDetail(
   p: DetailRow,
-  extras: { favIds?: ReadonlySet<string>; activeListings: number; similar: PublicationCard[] },
+  extras: { favIds?: ReadonlySet<string>; activeListings: number; similar: PublicationCard[]; revealOwnerContact?: boolean },
   now = new Date(),
 ): PublicationDetail {
   const base = toCard(p, extras.favIds, now);
@@ -137,9 +138,12 @@ export function toDetail(
     viewCount: p.viewCount,
     favoriteCount: p._count.favorites,
     contact: {
-      phone: p.showPhone ? (owner.phone ?? null) : null,
-      whatsapp: p.showWhatsapp ? (owner.profile?.whatsapp ?? null) : null,
+      phone: null,
+      whatsapp: JUCARO_WHATSAPP,
     },
+    ...(extras.revealOwnerContact
+      ? { ownerContact: { phone: owner.phone ?? null, whatsapp: owner.profile?.whatsapp ?? owner.phone ?? null } }
+      : {}),
     advertiser,
     priceHistory: history,
     similar: extras.similar,

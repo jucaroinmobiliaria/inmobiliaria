@@ -7,10 +7,12 @@ import { AnimatePresence, motion } from "motion/react";
 import { Dialog } from "@/components/ui/misc";
 import { api, ApiException } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import type { Catalog, DraftDTO, ImageDTO, SessionUser } from "@/lib/types";
+import { useSession } from "@/lib/session";
+import type { Catalog, CatalogCity, CatalogCityHit, DraftDTO, ImageDTO, SessionUser } from "@/lib/types";
 import { PhotoUploader } from "@/components/uploader/photo-uploader";
 import { useUploader } from "@/components/uploader/use-uploader";
 import { BottomBar, SegmentRail, StepsSheetHeader, TopBar, VerticalRail, type RailState } from "./chrome";
+import { featuresCopy } from "./interior-spaces";
 import { Callout } from "./fields";
 import { draftToCard } from "./preview";
 import { PreviewPanel } from "./preview-panel";
@@ -55,9 +57,31 @@ function withServerMissing(items: CheckItem[], missing: string[]): CheckItem[] {
 
 export function Wizard({ initialDraft, catalog, user, initialStep }: Props) {
   const router = useRouter();
+  const { setUser: setSessionUser } = useSession();
+  const [liveUser, setLiveUser] = useState(user);
+  const onUserChange = useCallback((u: SessionUser) => { setLiveUser(u); setSessionUser(u); }, [setSessionUser]);
   const dc = useDraft(initialDraft);
   const { draft, update, flush, save, serverErrors } = dc;
   const id = draft.id;
+
+  const [extraCities, setExtraCities] = useState<CatalogCity[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api<CatalogCityHit[]>("/catalog/cities")
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+        const have = new Set(catalog.cities.map((c) => c.id));
+        setExtraCities(rows.filter((c) => !have.has(c.id)).map((c) => ({
+          ...c, coverUrl: null, count: 0, neighborhoods: [],
+        })));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [catalog.cities]);
+  const liveCatalog = useMemo<Catalog>(() => {
+    if (!extraCities.length) return catalog;
+    return { ...catalog, cities: [...catalog.cities, ...extraCities].sort((a, b) => a.name.localeCompare(b.name, "es")) };
+  }, [catalog, extraCities]);
 
   /* --------------------------- fotos (motor) ---------------------------- */
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,8 +99,8 @@ export function Wizard({ initialDraft, catalog, user, initialStep }: Props) {
   const photos = useMemo<PhotoState>(() => ({ ready: uploader.readyCount, busy: uploader.busyCount, hasCover: uploader.hasCover }), [uploader.readyCount, uploader.busyCount, uploader.hasCover]);
 
   /* ------------------------------ derivados ----------------------------- */
-  const type = findType(catalog, draft.typeId);
-  const city = findCity(catalog, draft.cityId);
+  const type = findType(liveCatalog, draft.typeId);
+  const city = findCity(liveCatalog, draft.cityId);
   const traits = useMemo(() => typeTraits(type), [type]);
   const reachable = reachableStep(draft, photos);
   const canSubmit = draft.status === "DRAFT" || draft.status === "REJECTED";
@@ -87,7 +111,7 @@ export function Wizard({ initialDraft, catalog, user, initialStep }: Props) {
     })),
     [uploader.items],
   );
-  const card = useMemo(() => draftToCard(draft, catalog, previewImages, user), [draft, catalog, previewImages, user]);
+  const card = useMemo(() => draftToCard(draft, liveCatalog, previewImages, liveUser), [draft, liveCatalog, previewImages, liveUser]);
   const checklist = useMemo(() => withServerMissing(buildChecklist(draft, traits, photos), draft.completion.missing ?? []), [draft, traits, photos]);
   const percent = completionPercent(checklist);
 
@@ -288,7 +312,7 @@ export function Wizard({ initialDraft, catalog, user, initialStep }: Props) {
 
   /* -------------------------------- vista ------------------------------- */
   const def = stepDef(step);
-  const stepProps: StepProps = { draft, catalog, user, update, errors, traits, type, city, go: goTo };
+  const stepProps: StepProps = { draft, catalog: liveCatalog, user: liveUser, onUserChange, update, errors, traits, type, city, go: goTo };
   const Simple = SIMPLE[step];
 
   const nextLabel = step < TOTAL_STEPS ? "Continuar" : canSubmit ? (draft.status === "REJECTED" ? "Enviar de nuevo" : "Publicar") : "Guardar y salir";
@@ -313,8 +337,8 @@ export function Wizard({ initialDraft, catalog, user, initialStep }: Props) {
               <motion.div key={step} custom={nav.dir} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}>
                 <header className="mb-8 md:mb-10">
                   <p className="eyebrow">Paso {step} de {TOTAL_STEPS} · {BLOCKS[def.block]}</p>
-                  <h1 ref={setHeading} tabIndex={-1} className="display-md mt-2.5 text-balance outline-none">{def.title(draft.operation)}</h1>
-                  <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink-2">{def.subtitle}</p>
+                  <h1 ref={setHeading} tabIndex={-1} className="display-md mt-2.5 text-balance outline-none">{step === 4 ? featuresCopy(traits.kind).title : def.title(draft.operation)}</h1>
+                  <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink-2">{step === 4 ? featuresCopy(traits.kind).subtitle : def.subtitle}</p>
                 </header>
                 {Simple ? <Simple {...stepProps} /> : step === 6 ? (
                   <PhotoUploader uploader={uploader} kind={traits.kind} bedrooms={draft.bedrooms} error={errors.images} />

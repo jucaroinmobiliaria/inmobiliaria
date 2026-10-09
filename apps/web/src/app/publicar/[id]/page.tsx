@@ -29,7 +29,7 @@ export default async function PublishWizardPage({ params, searchParams }: { para
   const { id } = await params;
   const sp = await searchParams;
   const user = await requireUser(`/publicar/${id}`);
-  const [draft, catalog] = await Promise.all([loadDraft(id), apiServer<Catalog>("/catalog", { revalidate: 300 })]);
+  const [draft, catalog] = await Promise.all([loadDraft(id), apiServer<Catalog>("/catalog", { revalidate: 60 })]);
   if (!draft) notFound();
 
   // Paso inicial: el pedido en ?paso (acotado a lo alcanzable) o, si no hay, donde se quedó (primer paso incompleto).

@@ -7,7 +7,7 @@ export const HELP_GROUPS: HelpGroup[] = [
       { q: "¿Cómo encuentro un inmueble en una zona específica?", a: "Usa el buscador de la portada o la barra de filtros: escribe una ciudad o un barrio, elige el tipo de inmueble y ajusta precio, habitaciones y comodidades. También puedes dibujar tu zona en el mapa con “Buscar en esta zona”." },
       { q: "¿Qué significa que la ubicación sea aproximada?", a: "Algunos anunciantes prefieren no mostrar la dirección exacta hasta conocerte. En ese caso verás un área en el mapa y el anunciante te comparte la dirección al coordinar la visita." },
       { q: "¿Cómo agendo una visita?", a: "En la ficha del inmueble toca “Agendar visita”, elige el día y la franja que prefieras y envía la solicitud. El anunciante la confirma o te propone otro horario, y todo queda registrado en tu panel." },
-      { q: "¿Cómo contacto al anunciante?", a: "Desde cada anuncio puedes escribir un mensaje, solicitar una visita, abrir WhatsApp o ver el teléfono si el anunciante lo compartió. Jucaro no cobra comisión por ponerte en contacto." },
+      { q: "¿Cómo contacto al anunciante?", a: "Desde cada anuncio puedes escribir un mensaje, solicitar una visita o abrir WhatsApp para hablar con el equipo de Jucaro. Ellos coordinan contigo y con el anunciante. Jucaro no cobra comisión por ponerte en contacto." },
       { q: "¿Puedo guardar inmuebles y búsquedas?", a: "Sí. Toca el corazón de un anuncio para guardarlo, o “Guardar esta búsqueda” en los resultados para que te avisemos cuando aparezcan inmuebles nuevos con tus filtros. Todo queda en la sección Favoritos." },
     ],
   },

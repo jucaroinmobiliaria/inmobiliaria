@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatPrice, whatsappLink } from "@/lib/format";
-import { absoluteUrl } from "@/lib/site";
+import { SITE, absoluteUrl } from "@/lib/site";
 import type { PublicationDetail } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/misc";
@@ -20,10 +20,8 @@ export function MobileContactBar({ pub }: { pub: PublicationDetail }) {
             <p className="mt-1 truncate text-[12px] text-ink-3">Código #{pub.code}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {pub.contact.whatsapp && (
-              <a href={whatsappLink(pub.contact.whatsapp, `Hola, vi “${pub.title}” (código #${pub.code}) en Jucaro: ${absoluteUrl(pub.path)}`)} target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp"
-                className="grid h-12 w-12 place-items-center rounded-full border border-[#25D366]/60 text-[#1ebe5b] transition active:scale-95"><WhatsAppIcon size={22} /></a>
-            )}
+            <a href={whatsappLink(pub.contact.whatsapp || SITE.whatsapp, `Hola, vi “${pub.title}” (código #${pub.code}) en Jucaro: ${absoluteUrl(pub.path)}`)} target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp"
+              className="grid h-12 w-12 place-items-center rounded-full border border-[#25D366]/60 text-[#1ebe5b] transition active:scale-95"><WhatsAppIcon size={22} /></a>
             <Button size="lg" className="h-12 px-6" onClick={() => setOpen(true)}>Contactar</Button>
           </div>
         </div>

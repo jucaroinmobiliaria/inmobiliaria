@@ -48,7 +48,7 @@ export class PublicationsService {
   async create(user: AuthUser, dto: CreateDraftDto): Promise<DraftDTO> {
     const errors: Record<string, string[]> = {};
     if (dto.typeId && !(await this.prisma.propertyType.findUnique({ where: { id: dto.typeId }, select: { id: true } }))) errors.typeId = ["El tipo de inmueble no existe"];
-    if (dto.cityId && !(await this.prisma.city.findFirst({ where: { id: dto.cityId, active: true }, select: { id: true } }))) errors.cityId = ["La ciudad no existe"];
+    if (dto.cityId && !(await this.prisma.city.findUnique({ where: { id: dto.cityId }, select: { id: true } }))) errors.cityId = ["La ciudad no existe"];
     if (Object.keys(errors).length) throw new BadRequestException({ message: "Revisa los datos enviados", errors });
 
     const drafts = await this.prisma.publication.count({ where: { property: { ownerId: user.id }, status: "DRAFT" } });
@@ -92,7 +92,7 @@ export class PublicationsService {
 
     if (dto.typeId && !(await this.prisma.propertyType.findUnique({ where: { id: dto.typeId }, select: { id: true } }))) errors.typeId = ["El tipo de inmueble no existe"];
     const cityId = dto.cityId ?? loc?.cityId ?? null;
-    if (dto.cityId && !(await this.prisma.city.findFirst({ where: { id: dto.cityId, active: true }, select: { id: true } }))) errors.cityId = ["La ciudad no existe"];
+    if (dto.cityId && !(await this.prisma.city.findUnique({ where: { id: dto.cityId }, select: { id: true } }))) errors.cityId = ["La ciudad no existe"];
     let neighborhoodId: string | null | undefined = dto.neighborhoodId;
     if (neighborhoodId) {
       const n = await this.prisma.neighborhood.findUnique({ where: { id: neighborhoodId }, select: { cityId: true } });

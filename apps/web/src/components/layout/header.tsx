@@ -48,7 +48,7 @@ export function Header() {
       <header className={cn("fixed inset-x-0 top-0 z-50 transition-all duration-500", onHero ? "bg-transparent" : "glass border-b border-line/80")}>
         <div className="container-x flex h-[68px] items-center justify-between gap-6">
           <div className="flex items-center gap-10">
-            <Logo light={onHero} />
+            <Logo light={onHero} animate />
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Principal">
               {NAV.map((n) => {
                 const active = pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/"));

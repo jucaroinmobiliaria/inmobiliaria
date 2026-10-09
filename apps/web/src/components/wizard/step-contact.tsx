@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo } from "react";
-import { Switch } from "@/components/ui/form";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { cn } from "@/lib/cn";
+import { api } from "@/lib/api";
+import { SITE } from "@/lib/site";
+import { isValidPhone } from "@/lib/phone";
+import type { SessionUser } from "@/lib/types";
 import { CalendarDays, CircleCheck, ExternalLink, Link2, MessageCircle, Video } from "@/components/uploader/icons";
 import { Callout, FieldBlock } from "./fields";
 import { isHttpUrl } from "./steps";
@@ -52,30 +55,38 @@ function UrlField({ id, label, hint, value, onChange, error, placeholder }: { id
   );
 }
 
-export function StepContact({ draft, user, update, errors }: StepProps) {
-  const phone = user.phone;
-  const wa = user.profile.whatsapp ?? user.phone;
+export function StepContact({ draft, user, onUserChange, update, errors }: StepProps) {
   const embed = useMemo(() => embedFor(draft.videoUrl), [draft.videoUrl]);
+  const [phone, setPhone] = useState(user.phone ?? user.profile.whatsapp ?? "");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { setPhone(user.phone ?? user.profile.whatsapp ?? ""); }, [user.phone, user.profile.whatsapp]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const savePhone = (v: string) => {
+    setPhone(v);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (v && !isValidPhone(v)) return;
+      const n = v.trim() || null;
+      void api<{ user: SessionUser }>("/auth/me", { method: "PATCH", body: { phone: n, whatsapp: n } })
+        .then((r) => onUserChange?.(r.user))
+        .catch(() => {});
+    }, 500);
+  };
+
   return (
     <div className="grid gap-8">
-      <div className="grid gap-1">
-        <div className="grid gap-5 rounded-[20px] border border-line bg-white p-4 sm:p-5">
-          <Switch
-            checked={draft.showPhone} onChange={(v) => update({ showPhone: v })}
-            label="Mostrar mi teléfono" description={phone ? `Se verá ${phone} para quien quiera llamarte.` : "Quienes te vean podrán llamarte directamente."}
-          />
-          <div className="h-px bg-line" />
-          <Switch
-            checked={draft.showWhatsapp} onChange={(v) => update({ showWhatsapp: v })}
-            label="Mostrar WhatsApp" description={wa ? `Botón para escribirte a ${wa}.` : "Botón para que te escriban por WhatsApp."}
-          />
-        </div>
-        {(!phone && !user.profile.whatsapp) && (draft.showPhone || draft.showWhatsapp) && (
-          <Callout tone="warn" className="mt-3">
-            Aún no tienes teléfono ni WhatsApp en tu perfil, así que no habrá botones de contacto directo. <Link href="/panel/cuenta" className="font-semibold underline underline-offset-4">Agrégalos en tu cuenta</Link>. Los mensajes dentro de Jucaro siempre funcionan.
-          </Callout>
-        )}
-        <p className="mt-3 flex items-start gap-2 text-[13.5px] text-ink-3"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" /> Los mensajes de los interesados llegan siempre a tu panel y a tu correo, aunque ocultes el teléfono.</p>
+      <div className="grid gap-4">
+        <PhoneInput
+          label="Tu celular"
+          value={phone}
+          onChange={savePhone}
+          hint="No se publica en el aviso. El equipo de Jucaro lo usa para coordinar las consultas."
+        />
+        <Callout tone="info">
+          Los interesados escriben al WhatsApp de {SITE.name}. El equipo asesora y te contacta a ti con este número. Los mensajes del aviso también llegan a tu panel y a tu correo.
+        </Callout>
+        <p className="flex items-start gap-2 text-[13.5px] text-ink-3"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" /> En el aviso público aparece el botón de WhatsApp de Jucaro, no tu número.</p>
       </div>
 
       <div className="grid gap-5">

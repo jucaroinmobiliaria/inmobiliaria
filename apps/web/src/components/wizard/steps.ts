@@ -20,7 +20,7 @@ export const STEPS: StepDef[] = [
   { n: 2, slug: "tipo", block: 0, short: "Tipo", title: () => "¿Qué tipo de inmueble es?", subtitle: "Elige la opción que mejor lo describe." },
   { n: 3, slug: "ubicacion", block: 1, short: "Ubicación", title: () => "¿Dónde está ubicado?", subtitle: "Una buena ubicación ayuda a que te encuentren en las búsquedas y en el mapa." },
   { n: 4, slug: "caracteristicas", block: 2, short: "Características", title: () => "Cuéntanos cómo es por dentro", subtitle: "Los datos clave que todos preguntan primero." },
-  { n: 5, slug: "comodidades", block: 2, short: "Comodidades", title: () => "¿Qué lo hace especial?", subtitle: "Marca todo lo que tenga tu inmueble o su entorno." },
+  { n: 5, slug: "comodidades", block: 2, short: "Comodidades", title: () => "¿Qué lo hace especial?", subtitle: "Zonas comunes, servicios y lo que hay alrededor. Los espacios del inmueble ya los marcaste en el paso anterior." },
   { n: 6, slug: "fotos", block: 3, short: "Fotos", title: () => "Agrega las fotos de tu inmueble", subtitle: "Las fotos son lo primero que se ve. Con buena luz y espacios ordenados, el aviso llama más la atención." },
   { n: 7, slug: "precio", block: 4, short: "Precio", title: (op) => (op === "RENT" ? "¿Cuánto cuesta el arriendo?" : "¿Cuál es el precio de venta?"), subtitle: "Un precio claro y realista atrae más contactos." },
   { n: 8, slug: "descripcion", block: 4, short: "Título y descripción", title: () => "Ponle título y cuéntalo bien", subtitle: "Un título claro y una descripción honesta generan confianza." },

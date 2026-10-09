@@ -1,20 +1,59 @@
-import { Injectable } from "@nestjs/common";
-import { fold } from "../../common/slug.js";
+import { BadRequestException, Injectable, type OnModuleInit } from "@nestjs/common";
+import { fold, slugify } from "../../common/slug.js";
 import { Prisma, PrismaService } from "../../common/prisma.service.js";
 import { buildPath } from "../../common/seo.js";
-import type { Catalog, CatalogAmenity, SuggestItem } from "../../contract.js";
+import type { Catalog, CatalogAmenity, CatalogCityHit, CatalogNeighborhood, SuggestItem } from "../../contract.js";
+import { AMENITIES } from "./amenities.catalog.js";
 
 const TTL_MS = 5 * 60_000;
 
+function rankName(name: string, needle: string): number {
+  const f = fold(name);
+  return f.startsWith(needle) ? 0 : f.split(/\s+/).some((w) => w.startsWith(needle)) ? 1 : f.includes(needle) ? 2 : 9;
+}
+
+function toHood(n: { id: string; slug: string; name: string; lat: number; lng: number }): CatalogNeighborhood {
+  return { id: n.id, slug: n.slug, name: n.name, lat: n.lat, lng: n.lng };
+}
+
 @Injectable()
-export class CatalogService {
+export class CatalogService implements OnModuleInit {
   private cache: { at: number; data: Catalog } | null = null;
   private inflight: Promise<Catalog> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
+  async onModuleInit(): Promise<void> {
+    await this.ensureCanonicalAmenities();
+  }
+
   invalidate(): void {
     this.cache = null;
+  }
+
+  /** Crea amenidades canónicas que falten (producción no necesita re-seedear). No pisa nombres/iconos ya editados. */
+  async ensureCanonicalAmenities(): Promise<void> {
+    try {
+      const existing = await this.prisma.amenity.findMany({ select: { slug: true } });
+      const have = new Set(existing.map((a) => a.slug));
+      const missing = AMENITIES.filter((a) => !have.has(a.slug));
+      if (!missing.length) return;
+      const max = await this.prisma.amenity.aggregate({ _max: { sortOrder: true } });
+      await this.prisma.amenity.createMany({
+        data: missing.map((a, i) => ({
+          id: `amn_${a.slug}`,
+          slug: a.slug,
+          name: a.name,
+          icon: a.icon,
+          category: a.category,
+          sortOrder: (max._max.sortOrder ?? AMENITIES.length) + 1 + i,
+        })),
+        skipDuplicates: true,
+      });
+      this.invalidate();
+    } catch (e) {
+      console.warn("No se pudieron asegurar amenidades canónicas:", e);
+    }
   }
 
   async get(): Promise<Catalog> {
@@ -88,29 +127,89 @@ export class CatalogService {
 
     const needle = fold(q);
     if (needle.length >= 1 && !/^\d+$/.test(needle)) {
-      const rank = (name: string) => {
-        const f = fold(name);
-        return f.startsWith(needle) ? 0 : f.split(/\s+/).some((w) => w.startsWith(needle)) ? 1 : f.includes(needle) ? 2 : 9;
-      };
-      const [cat, dbCities] = await Promise.all([
+      const rank = (name: string) => rankName(name, needle);
+      const [cat, dbCities, dbHoods] = await Promise.all([
         this.get(),
         this.prisma.city.findMany({ select: { slug: true, name: true, department: true } }),
+        this.prisma.neighborhood.findMany({
+          select: { slug: true, name: true, city: { select: { slug: true, name: true, department: true } } },
+        }),
       ]);
       const cities = dbCities
         .map((c) => ({ c, r: Math.min(rank(c.name), rank(`${c.name} ${c.department}`)) }))
         .filter((x) => x.r < 9)
         .sort((a, b) => a.r - b.r || a.c.name.localeCompare(b.c.name, "es"))
-        .slice(0, 8);
+        .slice(0, 25);
       for (const { c } of cities) out.push({ kind: "city", label: c.name, sublabel: c.department, city: c.slug });
-      const hoods = cat.cities
-        .flatMap((c) => c.neighborhoods.map((n) => ({ n, c, r: rank(n.name) })))
+      const hoods = dbHoods
+        .map((n) => ({ n, r: rank(n.name) }))
         .filter((x) => x.r < 9)
-        .sort((a, b) => a.r - b.r || b.c.count - a.c.count)
-        .slice(0, 5);
-      for (const { n, c } of hoods) out.push({ kind: "neighborhood", label: n.name, sublabel: `${c.name}, ${c.department}`, city: c.slug, neighborhood: n.slug });
+        .sort((a, b) => a.r - b.r || a.n.name.localeCompare(b.n.name, "es"))
+        .slice(0, 12);
+      for (const { n } of hoods) out.push({ kind: "neighborhood", label: n.name, sublabel: `${n.city.name}, ${n.city.department}`, city: n.city.slug, neighborhood: n.slug });
       const types = cat.types.map((t) => ({ t, r: Math.min(rank(t.name), rank(t.pluralName)) })).filter((x) => x.r < 9).sort((a, b) => a.r - b.r).slice(0, 3);
       for (const { t } of types) out.push({ kind: "type", label: t.pluralName, sublabel: "Tipo de inmueble", type: t.slug });
     }
-    return out.slice(0, 16);
+    return out.slice(0, 30);
+  }
+
+  /** Todas las ciudades, o las que coinciden con `q` (sin tope de 8). */
+  async searchCities(raw: string): Promise<CatalogCityHit[]> {
+    const cities = await this.prisma.city.findMany({
+      select: { id: true, slug: true, name: true, department: true, lat: true, lng: true },
+      orderBy: { name: "asc" },
+    });
+    const needle = fold(raw);
+    if (!needle) return cities;
+    return cities
+      .map((c) => ({ c, r: Math.min(rankName(c.name, needle), rankName(`${c.name} ${c.department}`, needle)) }))
+      .filter((x) => x.r < 9)
+      .sort((a, b) => a.r - b.r || a.c.name.localeCompare(b.c.name, "es"))
+      .slice(0, 40)
+      .map((x) => x.c);
+  }
+
+  async listNeighborhoods(cityId: string, raw = ""): Promise<CatalogNeighborhood[]> {
+    const rows = await this.prisma.neighborhood.findMany({
+      where: { cityId },
+      orderBy: { name: "asc" },
+      select: { id: true, slug: true, name: true, lat: true, lng: true },
+    });
+    const needle = fold(raw);
+    if (!needle) return rows.map(toHood);
+    return rows.filter((n) => rankName(n.name, needle) < 9).map(toHood);
+  }
+
+  /** Crea el barrio si no existe (mismo nombre o slug en esa ciudad). */
+  async ensureNeighborhood(cityId: string, rawName: string): Promise<CatalogNeighborhood> {
+    const name = rawName.trim().replace(/\s+/g, " ");
+    const city = await this.prisma.city.findUnique({ where: { id: cityId }, select: { id: true, lat: true, lng: true } });
+    if (!city) throw new BadRequestException({ message: "La ciudad no existe", errors: { cityId: ["La ciudad no existe"] } });
+    const existing = await this.prisma.neighborhood.findMany({
+      where: { cityId },
+      select: { id: true, slug: true, name: true, lat: true, lng: true },
+    });
+    const same = existing.find((n) => fold(n.name) === fold(name));
+    if (same) return toHood(same);
+    const slug = slugify(name) || "barrio";
+    const bySlug = existing.find((n) => n.slug === slug);
+    if (bySlug) return toHood(bySlug);
+    try {
+      const created = await this.prisma.neighborhood.create({
+        data: { cityId, name, slug, lat: city.lat, lng: city.lng },
+        select: { id: true, slug: true, name: true, lat: true, lng: true },
+      });
+      this.invalidate();
+      return toHood(created);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        const again = await this.prisma.neighborhood.findUnique({
+          where: { cityId_slug: { cityId, slug } },
+          select: { id: true, slug: true, name: true, lat: true, lng: true },
+        });
+        if (again) return toHood(again);
+      }
+      throw e;
+    }
   }
 }

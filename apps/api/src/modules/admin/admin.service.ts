@@ -15,7 +15,7 @@ import { catalogSchemas } from "./admin.dto.js";
 
 const DAY = 86_400_000;
 const STATUSES: PublicationStatus[] = ["DRAFT", "PENDING_REVIEW", "PUBLISHED", "PAUSED", "REJECTED", "SOLD", "RENTED", "EXPIRED"];
-const adminRowInclude = () => ({ ...myRowInclude(), property: { include: { ...myRowInclude().property.include, owner: { select: { id: true, name: true, email: true, verified: true } } } }, _count: { select: { favorites: true, inquiries: true, reports: { where: { status: "OPEN" as const } } } } }) satisfies Prisma.PublicationInclude;
+const adminRowInclude = () => ({ ...myRowInclude(), property: { include: { ...myRowInclude().property.include, owner: { select: { id: true, name: true, email: true, verified: true, phone: true, profile: { select: { whatsapp: true } } } } } }, _count: { select: { favorites: true, inquiries: true, reports: { where: { status: "OPEN" as const } } } } }) satisfies Prisma.PublicationInclude;
 type AdminRow = Prisma.PublicationGetPayload<{ include: ReturnType<typeof adminRowInclude> }>;
 
 const paginate = <T>(items: T[], total: number, page: number, pageSize: number): Paginated<T> => ({ items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
@@ -67,7 +67,14 @@ export class AdminService {
 
   /* ---------- Publicaciones ---------- */
   private adminRow(r: AdminRow): AdminPublicationRow {
-    return { ...toMyRow(r), owner: { id: r.property.owner.id, name: r.property.owner.name, email: r.property.owner.email, verified: r.property.owner.verified }, reportCount: r._count.reports };
+    return {
+      ...toMyRow(r),
+      owner: {
+        id: r.property.owner.id, name: r.property.owner.name, email: r.property.owner.email, verified: r.property.owner.verified,
+        phone: r.property.owner.phone, whatsapp: r.property.owner.profile?.whatsapp ?? r.property.owner.phone,
+      },
+      reportCount: r._count.reports,
+    };
   }
 
   async publications(q: AdminPublicationsQuery): Promise<Paginated<AdminPublicationRow>> {

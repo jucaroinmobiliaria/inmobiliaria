@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { formatArea, formatDate, formatNumber, formatPrice, formatPriceShort, timeAgo } from "@/lib/format";
+import { formatArea, formatDate, formatNumber, formatPrice, formatPriceShort, timeAgo, whatsappLink } from "@/lib/format";
+import { formatPhoneDisplay } from "@/lib/phone";
 import { OPERATION_LABEL, STATUS_LABEL } from "@/lib/site";
 import { toast } from "@/lib/toast";
 import type { AdminPublicationRow, LandingData, Paginated, PublicationDetail } from "@/lib/types";
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, Badge, EmptyState, Skeleton } from "@/components/ui/misc";
 import { Photo } from "@/components/ui/photo";
 import {
-  ArrowLeft, BadgeCheck, Bath, Bed, Car, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ExternalLink, Icon, Keyboard, MapPin, Ruler, Sparkles, Check, X, ListChecks,
+  ArrowLeft, BadgeCheck, Bath, Bed, Car, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ExternalLink, Icon, Keyboard, MapPin, Phone, Ruler, Sparkles, Check, X, ListChecks, WhatsAppIcon,
 } from "@/components/ui/icon";
 import { ErrorState, PageHeader, errText, pct, useAction, useData } from "@/components/panel/common";
 import { burst } from "@/components/motion/gestures";
@@ -367,6 +368,20 @@ function OwnerCard({ d, email }: { d: PublicationDetail; email?: string }) {
           <p className="truncate text-sm text-ink-3">{email ?? (a.company || "—")}</p>
         </div>
       </div>
+      {(d.ownerContact?.phone || d.ownerContact?.whatsapp) && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+          {d.ownerContact.phone && (
+            <a href={`tel:${d.ownerContact.phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1.5 font-medium text-ink-2 hover:text-brand-700 hover:underline">
+              <Phone className="h-4 w-4" />{formatPhoneDisplay(d.ownerContact.phone)}
+            </a>
+          )}
+          {d.ownerContact.whatsapp && (
+            <a href={whatsappLink(d.ownerContact.whatsapp)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:underline">
+              <WhatsAppIcon className="h-4 w-4" size={16} />WhatsApp
+            </a>
+          )}
+        </div>
+      )}
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-surface p-2.5"><dt className="text-[11px] text-ink-3">Rol</dt><dd className="text-sm font-semibold">{{ USER: "Usuario", OWNER: "Propietario", AGENT: "Agente", ADMIN: "Admin" }[a.role]}</dd></div>
         <div className="rounded-xl bg-surface p-2.5"><dt className="text-[11px] text-ink-3">Avisos activos</dt><dd className="text-sm font-semibold tabular">{formatNumber(a.activeListings)}</dd></div>

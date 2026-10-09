@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Callout, OptionCard, SectionTitle } from "./fields";
+import { pruneAmenityIds } from "./interior-spaces";
 import { CONDITION_LABEL, clearedFieldsForTraits, typeTraits } from "./steps";
 import type { StepProps } from "./types";
 import type { Condition, DraftInput, Operation } from "@/lib/types";
@@ -33,9 +34,10 @@ export function StepType({ draft, catalog, update, errors }: StepProps) {
     if (id === draft.typeId) return;
     const t = catalog.types.find((x) => x.id === id);
     const cleared = clearedFieldsForTraits(typeTraits(t));
-    const patch: DraftInput = { typeId: id };
+    const patch: DraftInput = { typeId: id, amenityIds: pruneAmenityIds(draft.amenityIds, catalog, t) };
     // Solo limpiamos lo que realmente tenía datos y el nuevo tipo no admite.
     for (const [k, v] of Object.entries(cleared)) {
+      if (k === "amenityIds") continue;
       const cur = (draft as unknown as Record<string, unknown>)[k];
       if (cur !== v && cur != null && cur !== false) (patch as Record<string, unknown>)[k] = v;
     }

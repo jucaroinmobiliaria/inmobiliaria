@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { mutate as globalMutate } from "swr";
 import { api, qs } from "@/lib/api";
-import { formatNumber, formatPrice, timeAgo } from "@/lib/format";
+import { formatNumber, formatPrice, timeAgo, whatsappLink } from "@/lib/format";
+import { formatPhoneDisplay } from "@/lib/phone";
 import { OPERATION_LABEL, STATUS_LABEL } from "@/lib/site";
 import { toast } from "@/lib/toast";
 import type { AdminPublicationRow, Paginated } from "@/lib/types";
@@ -75,7 +76,15 @@ export function AdminPublications() {
       </div>
     ) },
     { key: "owner", header: "Anunciante", from: "md", cell: (r) => (
-      <div className="min-w-[150px]"><p className="flex items-center gap-1 font-medium">{r.owner.name}{r.owner.verified && <BadgeCheck className="h-4 w-4 text-brand-600" aria-label="Verificado" />}</p><p className="max-w-[200px] truncate text-xs text-ink-3">{r.owner.email}</p></div>
+      <div className="min-w-[150px]">
+        <p className="flex items-center gap-1 font-medium">{r.owner.name}{r.owner.verified && <BadgeCheck className="h-4 w-4 text-brand-600" aria-label="Verificado" />}</p>
+        <p className="max-w-[200px] truncate text-xs text-ink-3">{r.owner.email}</p>
+        {r.owner.phone && (
+          <a href={whatsappLink(r.owner.whatsapp || r.owner.phone)} target="_blank" rel="noopener noreferrer" className="mt-0.5 block truncate text-xs font-medium text-brand-700 hover:underline">
+            {formatPhoneDisplay(r.owner.phone)}
+          </a>
+        )}
+      </div>
     ) },
     { key: "status", header: "Estado", cell: (r) => <div className="flex flex-wrap items-center gap-1.5"><StatusCell r={r} />{r.reportCount > 0 && <span title={`${r.reportCount} reportes abiertos`}><Badge tone="danger"><Flag className="h-3 w-3" />{r.reportCount}</Badge></span>}</div> },
     { key: "price", header: "Precio", from: "xl", align: "right", cell: (r) => <span className="whitespace-nowrap font-medium tabular">{r.price > 0 ? formatPrice(r.price, r.currency) : "—"}</span> },

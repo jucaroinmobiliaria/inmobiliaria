@@ -211,6 +211,7 @@ const detailSpec = O({
   description: "s", amenities: A(amenitySpec), videoUrl: "ns", tourUrl: "ns", floor: "nn", totalFloors: "nn", ageYears: "nn", landArea: "nn",
   furnished: "b", petFriendly: "b", availableFrom: "niso", minContractMonths: "nn", viewCount: "n", favoriteCount: "n",
   contact: O({ phone: "ns", whatsapp: "ns" }),
+  ownerContact: OPT(O({ phone: "ns", whatsapp: "ns" })),
   advertiser: O({ ...advMiniSpec, memberSince: "iso", activeListings: "n", bio: "ns" }),
   priceHistory: A(O({ date: "iso", price: "n" })), similar: A(cardSpec),
 });
@@ -612,7 +613,7 @@ async function main(): Promise<void> {
     check("Bearer inválido -> 401", badBearer.status === 401);
 
     const upd = await c.patch("/auth/me", { displayName: "Prueba Humo Inmuebles", bio: "Propietario de prueba", whatsapp: "3001234567", company: "Humo SAS", website: "https://example.test", city: "Medellín", name: "Prueba Humo" });
-    check("PATCH /auth/me actualiza perfil", upd.status === 200 && upd.data?.user?.profile?.company === "Humo SAS" && upd.data?.user?.profile?.whatsapp === "3001234567", upd.data);
+    check("PATCH /auth/me actualiza perfil", upd.status === 200 && upd.data?.user?.profile?.company === "Humo SAS" && upd.data?.user?.profile?.whatsapp === "+573001234567", upd.data);
     const updBad = await c.patch("/auth/me", { website: "javascript:alert(1)" });
     check("PATCH /auth/me rechaza URLs javascript:", updBad.status === 400, updBad.status);
     const mass = await c.patch("/auth/me", { role: "ADMIN", verified: true });
@@ -969,7 +970,7 @@ async function main(): Promise<void> {
     shape("Paginated<AdminPublicationRow>", queue.data, paginated(O({
       id: "s", code: "n", title: "s", operation: OPERATION, status: STATUS, price: "n", currency: S("COP", "USD"), coverUrl: "ns", path: "ns", city: "ns", neighborhood: "ns",
       type: "ns", views: "n", favorites: "n", inquiries: "n", featured: "b", moderationNote: "ns", updatedAt: "iso", publishedAt: "niso", completion: "n",
-      owner: O({ id: "s", name: "s", email: "s", verified: "b" }), reportCount: "n",
+      owner: O({ id: "s", name: "s", email: "s", verified: "b", phone: "ns", whatsapp: "ns" }), reportCount: "n",
     })));
     const qsearch = await a.get(`/admin/publications?q=${W.pubCode}`);
     check("admin: búsqueda por código", qsearch.status === 200 && qsearch.data.items.some((r: J) => r.id === W.pubId), qsearch.data?.total);
@@ -1044,7 +1045,11 @@ async function main(): Promise<void> {
     check("el JSON público no contiene las coordenadas exactas ni la dirección", !JSON.stringify(d.data).includes("6.2092") && !JSON.stringify(d.data).includes("-75.5671") && !JSON.stringify(d.data).includes("Calle 10 # 35-20"));
     const d2 = await anon.get(`/publications/by-code/${W.pubCode}`);
     check("el desplazamiento es determinista", d2.data.lat === d.data.lat && d2.data.lng === d.data.lng);
-    check("detalle: contacto con teléfono y whatsapp del anunciante", d.data.contact.phone === "+57 300 123 4567" && d.data.contact.whatsapp === "3001234567", d.data.contact);
+    check("detalle público: WhatsApp de Jucaro y sin teléfono del anunciante", d.data.contact.phone === null && d.data.contact.whatsapp === "573027474421" && !d.data.ownerContact, d.data.contact);
+    const pubJson = JSON.stringify(d.data);
+    check("el JSON público no filtra el teléfono del anunciante", !pubJson.includes("300 123 4567") && !pubJson.includes("3001234567") && !pubJson.includes("+573001234567"));
+    const adminDetail = await W.admin!.get(`/publications/${W.pubId}`);
+    check("admin ve el teléfono real del anunciante", adminDetail.status === 200 && adminDetail.data.ownerContact?.phone === "+573001234567" && (adminDetail.data.ownerContact?.whatsapp === "+573001234567"), adminDetail.data?.ownerContact);
     check("detalle: título sanitizado y 6 comodidades", !d.data.title.includes("<") && d.data.amenities.length === 6);
     check("detalle: advertiser Humo SAS", d.data.advertiser.company === "Humo SAS" && d.data.advertiser.activeListings >= 1, d.data.advertiser);
 

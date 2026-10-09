@@ -5,7 +5,8 @@ import { Switch } from "@/components/ui/form";
 import { Icon, Search, X } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import type { AmenityCategory } from "@/lib/types";
-import { ChipRow, CounterField, FieldBlock, NumberField } from "./fields";
+import { ChipRow, CounterField, FieldBlock, NumberField, SectionTitle } from "./fields";
+import { extraAmenities, spaceAmenities, spacesSection } from "./interior-spaces";
 import type { StepProps } from "./types";
 
 /* --------------------------- Área con m² / ha --------------------------- */
@@ -35,9 +36,12 @@ function AreaField({ label, hint, value, onChange, hectares, id }: { label: stri
 
 /* -------------------------------- Paso 4 -------------------------------- */
 
-export function StepFeatures({ draft, update, traits }: StepProps) {
-  const isLandOrFarm = traits.kind === "land" || traits.kind === "farm";
+export function StepFeatures({ draft, update, traits, catalog, type }: StepProps) {
   const roomsRow = traits.rooms || traits.bathrooms || traits.parking;
+  const spaces = useMemo(() => spaceAmenities(catalog, type), [catalog, type]);
+  const sel = useMemo(() => new Set(draft.amenityIds), [draft.amenityIds]);
+  const toggle = (id: string) => update({ amenityIds: sel.has(id) ? draft.amenityIds.filter((x) => x !== id) : [...draft.amenityIds, id] });
+  const spaceCopy = spacesSection(traits.kind);
   return (
     <div className="grid gap-8">
       {roomsRow && (
@@ -45,6 +49,23 @@ export function StepFeatures({ draft, update, traits }: StepProps) {
           {traits.rooms && <CounterField label="Habitaciones" icon="bed" value={draft.bedrooms} onChange={(n) => update({ bedrooms: n })} max={30} hint="Cuenta solo alcobas." />}
           {traits.bathrooms && <CounterField label="Baños" icon="bath" value={draft.bathrooms} onChange={(n) => update({ bathrooms: n })} max={20} />}
           {traits.parking && <CounterField label="Parqueaderos" icon="car" value={draft.parking} onChange={(n) => update({ parking: n })} max={20} />}
+        </div>
+      )}
+
+      {spaces.length > 0 && (
+        <div>
+          <SectionTitle hint={spaceCopy.hint}>{spaceCopy.title}</SectionTitle>
+          <div className="flex flex-wrap gap-2.5">
+            {spaces.map((a) => {
+              const on = sel.has(a.id);
+              return (
+                <button key={a.id} type="button" aria-pressed={on} onClick={() => toggle(a.id)}
+                  className={cn("inline-flex h-12 items-center gap-2.5 rounded-full border pl-3.5 pr-5 text-[15px] font-semibold transition-all active:scale-95", on ? "border-brand-700 bg-brand-700 text-white shadow-[0_6px_16px_-8px_rgb(8_82_64/0.7)]" : "border-line-strong bg-white text-ink hover:border-ink")}>
+                  <Icon name={a.icon} size={19} className={on ? "text-white" : "text-brand-600"} />{a.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -88,7 +109,9 @@ export function StepFeatures({ draft, update, traits }: StepProps) {
         </div>
       )}
 
-      {isLandOrFarm && !roomsRow && <p className="text-[14px] text-ink-3">Para lotes solo necesitamos el área. En el siguiente paso puedes marcar servicios y características del entorno.</p>}
+      {traits.kind === "land" && !roomsRow && (
+        <p className="text-[14px] text-ink-3">En el siguiente paso puedes marcar qué hay alrededor (transporte, colegios, parques).</p>
+      )}
     </div>
   );
 }
@@ -96,19 +119,25 @@ export function StepFeatures({ draft, update, traits }: StepProps) {
 /* -------------------------------- Paso 5 -------------------------------- */
 
 const CAT: Record<AmenityCategory, { title: string; hint: string }> = {
-  INTERIOR: { title: "Dentro del inmueble", hint: "Lo que encuentras al entrar" },
+  INTERIOR: { title: "Instalaciones", hint: "Aire, gas, chimenea y similares" },
   BUILDING: { title: "Edificio y zonas comunes", hint: "Servicios compartidos" },
-  EXTERIOR: { title: "Exteriores", hint: "Balcones, terrazas y zonas verdes" },
+  EXTERIOR: { title: "Exteriores y conjunto", hint: "BBQ, zonas verdes y vistas" },
   SURROUNDINGS: { title: "Alrededores", hint: "Qué hay cerca" },
 };
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export function StepAmenities({ draft, catalog, update }: StepProps) {
+export function StepAmenities({ draft, catalog, update, type }: StepProps) {
   const [q, setQ] = useState("");
+  const extras = useMemo(() => extraAmenities(catalog, type), [catalog, type]);
+  const spaceIds = useMemo(() => new Set(spaceAmenities(catalog, type).map((a) => a.id)), [catalog, type]);
+  const extraIds = useMemo(() => extras.map((a) => a.id), [extras]);
+  const extraSet = useMemo(() => new Set(extraIds), [extraIds]);
+  const selectedExtras = draft.amenityIds.filter((id) => extraSet.has(id));
   const sel = useMemo(() => new Set(draft.amenityIds), [draft.amenityIds]);
   const toggle = (id: string) => update({ amenityIds: sel.has(id) ? draft.amenityIds.filter((x) => x !== id) : [...draft.amenityIds, id] });
+  const clearExtras = () => update({ amenityIds: draft.amenityIds.filter((id) => spaceIds.has(id)) });
   const query = norm(q.trim());
-  const cats = (Object.keys(CAT) as AmenityCategory[]).map((c) => ({ c, items: catalog.amenities.filter((a) => a.category === c && (!query || norm(a.name).includes(query))) })).filter((g) => g.items.length);
+  const cats = (Object.keys(CAT) as AmenityCategory[]).map((c) => ({ c, items: extras.filter((a) => a.category === c && (!query || norm(a.name).includes(query))) })).filter((g) => g.items.length);
 
   return (
     <div className="grid gap-7">
@@ -116,16 +145,16 @@ export function StepAmenities({ draft, catalog, update }: StepProps) {
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
           <input
-            value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar: piscina, ascensor, balcón…" aria-label="Buscar comodidades"
+            value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar: piscina, ascensor, portería…" aria-label="Buscar comodidades"
             className="h-12 w-full rounded-full border border-field/60 bg-white pl-11 pr-10 text-[15px] placeholder:text-ink-3 hover:border-ink focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15"
           />
           {q && <button type="button" onClick={() => setQ("")} aria-label="Limpiar búsqueda" className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-ink-3 hover:bg-surface"><X className="h-4 w-4" /></button>}
         </div>
-        <p className="text-[14px] font-semibold text-ink-2 tabular" aria-live="polite">{draft.amenityIds.length} {draft.amenityIds.length === 1 ? "seleccionada" : "seleccionadas"}</p>
-        {draft.amenityIds.length > 0 && <button type="button" onClick={() => update({ amenityIds: [] })} className="text-[14px] font-semibold text-ink-3 underline-offset-4 hover:text-ink hover:underline">Quitar todas</button>}
+        <p className="text-[14px] font-semibold text-ink-2 tabular" aria-live="polite">{selectedExtras.length} {selectedExtras.length === 1 ? "seleccionada" : "seleccionadas"}</p>
+        {selectedExtras.length > 0 && <button type="button" onClick={clearExtras} className="text-[14px] font-semibold text-ink-3 underline-offset-4 hover:text-ink hover:underline">Quitar todas</button>}
       </div>
 
-      {cats.length === 0 && <p className="rounded-2xl bg-surface px-5 py-8 text-center text-[15px] text-ink-2">No encontramos “{q}”. Prueba con otra palabra.</p>}
+      {cats.length === 0 && <p className="rounded-2xl bg-surface px-5 py-8 text-center text-[15px] text-ink-2">{q ? `No encontramos “${q}”. Prueba con otra palabra.` : "No hay más comodidades para este tipo de inmueble."}</p>}
 
       {cats.map(({ c, items }) => {
         const n = items.filter((a) => sel.has(a.id)).length;

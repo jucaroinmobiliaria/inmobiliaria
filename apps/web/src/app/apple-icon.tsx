@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { MARK_C, MARK_J } from "@/lib/brand-mark";
+import { MARK_C, MARK_J, MARK_STROKE, MARK_WINDOW } from "@/lib/brand-mark";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
@@ -19,9 +19,9 @@ export default function AppleIcon() {
         }}
       >
         <svg width="140" height="140" viewBox="0 0 40 40">
-          <path d={MARK_C} fill="none" stroke="#fff" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={MARK_J} fill="none" stroke="#fff" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="23.6" cy="19.4" r="2.15" fill="#D4A44A" />
+          <path d={MARK_C} fill="none" stroke="#fff" strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={MARK_J} fill="none" stroke="#fff" strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" />
+          <rect x={MARK_WINDOW.x} y={MARK_WINDOW.y} width={MARK_WINDOW.size} height={MARK_WINDOW.size} rx={MARK_WINDOW.rx} fill="#D4A44A" />
         </svg>
       </div>
     ),

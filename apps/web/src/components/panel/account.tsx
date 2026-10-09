@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { isValidPhone } from "@/lib/phone";
 import { SITE } from "@/lib/site";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
 import type { SessionUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Avatar, Badge, Skeleton } from "@/components/ui/misc";
 import { burst } from "@/components/motion/gestures";
 import { BadgeCheck, LogOut, Mail } from "@/components/ui/icon";
@@ -76,6 +78,8 @@ function ProfileForm({ user, onSaved }: { user: SessionUser; onSaved: (u: Sessio
     e.preventDefault();
     const local: Record<string, string> = {};
     if (f.name.trim().length < 2) local.name = "Escribe tu nombre completo.";
+    if (f.phone.trim() && !isValidPhone(f.phone)) local.phone = "Revisa el número de teléfono.";
+    if (f.whatsapp.trim() && !isValidPhone(f.whatsapp)) local.whatsapp = "Revisa el número de WhatsApp.";
     if (f.website && !/^https?:\/\/\S+\.\S+/.test(f.website.trim())) local.website = "Incluye el enlace completo, por ejemplo https://tuempresa.co";
     if (f.avatarUrl && !/^https?:\/\/\S+/.test(f.avatarUrl.trim())) local.avatarUrl = "Pega un enlace que empiece por https://";
     setErrors(local);
@@ -102,8 +106,8 @@ function ProfileForm({ user, onSaved }: { user: SessionUser; onSaved: (u: Sessio
       <div className="grid items-start grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
         <Input label="Nombre completo" required autoComplete="name" value={f.name} onChange={set("name")} error={errors.name} />
         <Input label="Nombre público" hint="Cómo te verán los interesados (opcional)." value={f.displayName} onChange={set("displayName")} error={errors.displayName} placeholder="Ej. Carlos · Inmuebles del Valle" />
-        <Input label="Teléfono" type="tel" autoComplete="tel" inputMode="tel" value={f.phone} onChange={set("phone")} error={errors.phone} placeholder="300 123 4567" />
-        <Input label="WhatsApp" type="tel" inputMode="tel" value={f.whatsapp} onChange={set("whatsapp")} error={errors.whatsapp} placeholder="300 123 4567" hint="Aparecerá como botón de contacto." />
+        <PhoneInput label="Teléfono" value={f.phone} onChange={(v) => { setF((p) => ({ ...p, phone: v })); setErrors((p) => ({ ...p, phone: "" })); }} error={errors.phone} />
+        <PhoneInput label="WhatsApp" value={f.whatsapp} onChange={(v) => { setF((p) => ({ ...p, whatsapp: v })); setErrors((p) => ({ ...p, whatsapp: "" })); }} error={errors.whatsapp} hint="Lo usa el equipo de Jucaro para coordinar. No se muestra en el aviso público." />
         <Input label="Empresa o inmobiliaria" autoComplete="organization" value={f.company} onChange={set("company")} error={errors.company} />
         <Input label="Ciudad" autoComplete="address-level2" value={f.city} onChange={set("city")} error={errors.city} placeholder="Medellín" />
         <Input label="Sitio web" type="url" inputMode="url" value={f.website} onChange={set("website")} error={errors.website} placeholder="https://" />

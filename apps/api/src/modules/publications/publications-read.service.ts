@@ -99,7 +99,7 @@ export class PublicationsReadService {
       this.similar(p, user?.id),
       this.favoriteIds(user?.id, [p.id]),
     ]);
-    return toDetail(p, { favIds: fav, activeListings, similar });
+    return toDetail(p, { favIds: fav, activeListings, similar, revealOwnerContact: user?.role === "ADMIN" });
   }
 
   private async similar(p: { id: string; operation: "SALE" | "RENT"; price: bigint | null; property: { typeId: string | null; location: { cityId: string | null; neighborhoodId: string | null } | null } }, userId?: string): Promise<PublicationCard[]> {

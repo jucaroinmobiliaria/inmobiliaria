@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, type PipeTransform } from "@nestjs/common";
 import { z } from "zod";
+import { toE164 } from "./phone.js";
 
 z.config(z.locales.es());
 
@@ -51,8 +52,10 @@ export const emailField = z
 export const phoneField = z
   .string({ error: "Teléfono no válido" })
   .trim()
-  .max(30, "Teléfono: máximo 30 caracteres")
-  .regex(/^[0-9+()\-\s.]*$/, "Teléfono no válido");
+  .max(32, "Teléfono: máximo 32 caracteres")
+  .regex(/^[0-9+()\-\s.]*$/, "Teléfono no válido")
+  .refine((v) => v === "" || toE164(v) !== null, "Revisa el número de teléfono")
+  .transform((v) => (v === "" ? v : toE164(v)!));
 
 export const urlField = (label: string) =>
   z

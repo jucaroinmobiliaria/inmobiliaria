@@ -6,16 +6,18 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import { api, ApiException } from "@/lib/api";
 import { formatPrice, whatsappLink } from "@/lib/format";
-import { absoluteUrl } from "@/lib/site";
+import { formatPhoneDisplay, isValidPhone } from "@/lib/phone";
+import { SITE, absoluteUrl } from "@/lib/site";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
 import type { PublicationDetail } from "@/lib/types";
 import { Avatar } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/form";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { BadgeCheck, Check, Phone, ShieldCheck, WhatsAppIcon } from "@/components/ui/icon";
 
-type Pub = Pick<PublicationDetail, "id" | "code" | "title" | "path" | "operation" | "price" | "currency" | "negotiable" | "adminFee" | "contact" | "advertiser" | "status">;
+type Pub = Pick<PublicationDetail, "id" | "code" | "title" | "path" | "operation" | "price" | "currency" | "negotiable" | "adminFee" | "contact" | "ownerContact" | "advertiser" | "status">;
 type Errors = Record<string, string[]>;
 
 const SLOTS = [9, 10, 11, 12, 14, 15, 16, 17];
@@ -43,7 +45,6 @@ export function ContactCard({ pub, variant = "card" }: { pub: Pub; variant?: "ca
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<null | { kind: "msg" | "visit"; when?: string }>(null);
-  const [showPhone, setShowPhone] = useState(false);
   const days = useMemo(nextDays, []);
   const [day, setDay] = useState(0);
   const [hour, setHour] = useState<number | null>(null);
@@ -67,6 +68,7 @@ export function ContactCard({ pub, variant = "card" }: { pub: Pub; variant?: "ca
     if (form.name.trim().length < 2) local.name = ["Escribe tu nombre"];
     if (!/^\S+@\S+\.\S+$/.test(form.email)) local.email = ["Escribe un correo válido"];
     if (tab === "msg" && form.message.trim().length < 10) local.message = ["Cuéntale algo más al anunciante (mínimo 10 caracteres)"];
+    if (form.phone.trim() && !isValidPhone(form.phone)) local.phone = ["Revisa el número de teléfono"];
     if (tab === "visit" && hour === null) local.scheduledAt = ["Elige un horario"];
     if (Object.keys(local).length) { setErrors(local); return; }
     setBusy(true);
@@ -154,7 +156,7 @@ export function ContactCard({ pub, variant = "card" }: { pub: Pub; variant?: "ca
               )}
               <Input label="Nombre" name="name" autoComplete="name" value={form.name} onChange={set("name")} error={err("name")} required />
               <Input label="Correo" name="email" type="email" autoComplete="email" value={form.email} onChange={set("email")} error={err("email")} required />
-              <Input label="Teléfono (opcional)" name="phone" type="tel" autoComplete="tel" inputMode="tel" value={form.phone} onChange={set("phone")} error={err("phone")} />
+              <PhoneInput label="Teléfono (opcional)" name="phone" value={form.phone} onChange={(v) => { setForm((f) => ({ ...f, phone: v })); setErrors((er) => ({ ...er, phone: [] })); }} error={err("phone")} />
               {tab === "msg" ? <Textarea label="Mensaje" name="message" rows={4} value={form.message} onChange={set("message")} error={err("message")} required /> : <Textarea label="Nota para el anunciante (opcional)" name="note" rows={2} value={form.note} onChange={set("note")} error={err("note")} placeholder="Ej. Voy con mi pareja" className="min-h-20" />}
               <Button type="submit" size="lg" loading={busy} disabled={!isPublished} className="w-full">{tab === "msg" ? "Enviar mensaje" : "Solicitar visita"}</Button>
               {!isPublished && <p className="text-center text-[13px] text-ink-3">Este anuncio no está publicado, por eso el contacto está desactivado.</p>}
@@ -163,18 +165,16 @@ export function ContactCard({ pub, variant = "card" }: { pub: Pub; variant?: "ca
         )}
       </AnimatePresence>
 
-      {(pub.contact.whatsapp || pub.contact.phone) && (
-        <>
-          <div className="my-5 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-ink-3"><span className="h-px flex-1 bg-line" />o contacta directo<span className="h-px flex-1 bg-line" /></div>
-          <div className={cn("grid gap-2", pub.contact.whatsapp && pub.contact.phone ? "grid-cols-2" : "grid-cols-1")}>
-            {pub.contact.whatsapp && (
-              <Button href={whatsappLink(pub.contact.whatsapp, waText)} target="_blank" rel="noopener noreferrer" variant="outline" className="!border-[#25D366]/60 hover:!border-[#25D366] hover:!bg-[#25D366]/10"><WhatsAppIcon className="text-[#1ebe5b]" size={18} />WhatsApp</Button>
-            )}
-            {pub.contact.phone && (showPhone
-              ? <Button href={`tel:${pub.contact.phone.replace(/[^\d+]/g, "")}`} variant="outline"><Phone className="h-[18px] w-[18px]" />{pub.contact.phone}</Button>
-              : <Button variant="outline" onClick={() => setShowPhone(true)}><Phone className="h-[18px] w-[18px]" />Ver teléfono</Button>)}
+      <div className="my-5 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-ink-3"><span className="h-px flex-1 bg-line" />o escríbenos<span className="h-px flex-1 bg-line" /></div>
+      <Button href={whatsappLink(pub.contact.whatsapp || SITE.whatsapp, waText)} target="_blank" rel="noopener noreferrer" variant="outline" className="w-full !border-[#25D366]/60 hover:!border-[#25D366] hover:!bg-[#25D366]/10"><WhatsAppIcon className="text-[#1ebe5b]" size={18} />WhatsApp</Button>
+      {user?.role === "ADMIN" && pub.ownerContact && (pub.ownerContact.phone || pub.ownerContact.whatsapp) && (
+        <div className="mt-3 rounded-2xl border border-line bg-surface p-3.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-3">Solo administradores · anunciante</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {pub.ownerContact.phone && <Button href={`tel:${pub.ownerContact.phone.replace(/[^\d+]/g, "")}`} variant="outline" size="sm"><Phone className="h-4 w-4" />{formatPhoneDisplay(pub.ownerContact.phone)}</Button>}
+            {pub.ownerContact.whatsapp && <Button href={whatsappLink(pub.ownerContact.whatsapp, waText)} target="_blank" rel="noopener noreferrer" variant="outline" size="sm"><WhatsAppIcon className="text-[#1ebe5b]" size={16} />WhatsApp del anunciante</Button>}
           </div>
-        </>
+        </div>
       )}
 
       <p className="mt-5 flex gap-2.5 rounded-2xl bg-brand-50 p-3.5 text-[13px] leading-snug text-brand-800">
