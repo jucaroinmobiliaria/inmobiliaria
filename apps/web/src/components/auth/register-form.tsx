@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -10,12 +9,12 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Check, Mail, Search, User } from "@/components/ui/icon";
 import { isValidPhone } from "@/lib/phone";
 import { Handshake, Key } from "@/components/search/icons";
+import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
 import { PasswordInput, StrengthMeter } from "./password-input";
 import { FormAlert } from "./login-form";
 import { isEmail, readError, type FieldErrors } from "./form-utils";
-import { landingFor } from "./safe-next";
 import { burst } from "@/components/motion/gestures";
 
 export type RegRole = "USER" | "OWNER" | "AGENT";
@@ -25,8 +24,7 @@ const ROLES: { value: RegRole; title: string; text: string; icon: React.ReactNod
   { value: "AGENT", title: "Soy agente", text: "Publico para mis clientes.", icon: <Handshake className="h-5 w-5" /> },
 ];
 
-export function RegisterForm({ next, initialRole, loginHref }: { next: string | null; initialRole: RegRole; loginHref: string }) {
-  const router = useRouter();
+export function RegisterForm({ next: _next, initialRole, loginHref }: { next: string | null; initialRole: RegRole; loginHref: string }) {
   const { register } = useSession();
   const [role, setRole] = useState<RegRole>(initialRole);
   const [name, setName] = useState("");
@@ -35,6 +33,7 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
   const [password, setPassword] = useState("");
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -51,15 +50,43 @@ export function RegisterForm({ next, initialRole, loginHref }: { next: string | 
     if (Object.keys(local).length) return;
     setBusy(true);
     try {
-      const user = await register({ name: name.trim(), email: email.trim(), password, role, ...(phone.trim() ? { phone: phone.trim() } : {}) });
-      toast.success(`¡Bienvenido a Jucaro, ${user.name.split(" ")[0]}!`);
-      router.replace(landingFor(user.role, next));
+      const r = await register({ name: name.trim(), email: email.trim(), password, role, ...(phone.trim() ? { phone: phone.trim() } : {}) });
+      setPendingEmail(r.email);
     } catch (err) {
       const r = readError(err);
       setErrors(r.fields);
       setFormError(r.form);
+    } finally {
       setBusy(false);
     }
+  }
+
+  async function resend() {
+    if (!pendingEmail || busy) return;
+    setBusy(true);
+    try {
+      await api("/auth/resend-verification", { body: { email: pendingEmail } });
+      toast.success("Si el correo sigue pendiente, te enviamos el enlace de nuevo.");
+    } catch (err) {
+      const r = readError(err);
+      toast.error(r.form ?? "No pudimos reenviar el correo. Inténtalo de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (pendingEmail) {
+    return (
+      <div className="rounded-[24px] bg-brand-50 p-6" role="status">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white"><Mail className="h-6 w-6" /></span>
+        <h2 className="mt-4 font-display text-[1.7rem] leading-tight">Revisa tu correo</h2>
+        <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">Te enviamos un enlace a <strong className="font-semibold text-ink">{pendingEmail}</strong> para confirmar y crear tu cuenta. Hasta que lo abras, la cuenta no existirá. Puede tardar un par de minutos; mira también en spam.</p>
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <Button loading={busy} onClick={() => void resend()}>Reenviar correo</Button>
+          <Button variant="outline" onClick={() => setPendingEmail(null)}>Usar otro correo</Button>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -7,9 +7,17 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import type { NextFunction, Request, Response } from "express";
-import helmet from "helmet";
+import helmetImport from "helmet";
 import { AppModule } from "./app.module.js";
 import { sanitizeDeep } from "./common/sanitize.js";
+
+type HelmetMw = (options?: {
+  crossOriginResourcePolicy?: { policy: "cross-origin" | "same-origin" | "same-site" };
+  contentSecurityPolicy?: { directives: Record<string, string[]> };
+}) => (req: Request, res: Response, next: NextFunction) => void;
+
+/** Helmet 8 + moduleResolution nodenext a veces tipa el default como namespace, no como función. */
+const helmet = ((helmetImport as unknown as { default?: HelmetMw }).default ?? helmetImport) as HelmetMw;
 
 /** Sanitiza body y query de toda petición (etiquetas HTML y caracteres de control). */
 function sanitizeInput(req: Request, _res: Response, next: NextFunction): void {

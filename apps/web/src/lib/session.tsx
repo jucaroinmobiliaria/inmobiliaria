@@ -4,14 +4,14 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import useSWR, { mutate as globalMutate } from "swr";
 import { useRouter } from "next/navigation";
 import { api, ApiException } from "./api";
-import type { SessionUser } from "./types";
+import type { RegisterPendingDTO, SessionUser } from "./types";
 
 type RegisterInput = { name: string; email: string; password: string; phone?: string; role?: "USER" | "OWNER" | "AGENT" };
 type Ctx = {
   user: SessionUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<SessionUser>;
-  register: (input: RegisterInput) => Promise<SessionUser>;
+  register: (input: RegisterInput) => Promise<RegisterPendingDTO>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (u: SessionUser | null) => void;
@@ -44,11 +44,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [mutate, router]);
 
   const register = useCallback(async (input: RegisterInput) => {
-    const r = await api<{ user: SessionUser }>("/auth/register", { body: input });
-    await mutate(r.user, { revalidate: false });
-    router.refresh();
-    return r.user;
-  }, [mutate, router]);
+    return api<RegisterPendingDTO>("/auth/register", { body: input });
+  }, []);
 
   const logout = useCallback(async () => {
     await api("/auth/logout", { method: "POST" }).catch(() => null);

@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { Mail, CircleAlert } from "@/components/ui/icon";
+import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { toast } from "@/lib/toast";
 import { PasswordInput } from "./password-input";
@@ -34,6 +35,7 @@ export function LoginForm({ next, registerHref }: { next: string | null; registe
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -69,6 +71,26 @@ export function LoginForm({ next, registerHref }: { next: string | null; registe
       </div>
       <Button type="submit" size="lg" loading={busy} className="w-full" onClick={(e) => burst("door", e.currentTarget)}>Ingresar</Button>
       <p className="text-center text-[15px] text-ink-2">¿Aún no tienes cuenta? <Link href={registerHref} className="font-semibold text-brand-700 underline-offset-4 hover:underline">Crea una gratis</Link></p>
+      <p className="text-center text-[14px] text-ink-3">
+        ¿No te llegó el correo de confirmación?{" "}
+        <button
+          type="button"
+          disabled={resendBusy}
+          className="font-semibold text-brand-700 underline-offset-4 hover:underline disabled:opacity-50"
+          onClick={() => {
+            if (!isEmail(email)) { router.push(registerHref); return; }
+            setResendBusy(true);
+            api("/auth/resend-verification", { body: { email: email.trim() } })
+              .then(() => toast.success("Si hay un registro pendiente, te enviamos el enlace. Revisa tu correo."))
+              .catch((err) => { const r = readError(err); toast.error(r.form ?? "No pudimos reenviar el correo."); })
+              .finally(() => setResendBusy(false));
+          }}
+        >
+          Reenviar
+        </button>
+        {" · "}
+        <Link href={registerHref} className="font-semibold text-brand-700 underline-offset-4 hover:underline">Volver a registrarte</Link>
+      </p>
 
       {process.env.NODE_ENV !== "production" && (
         <div className="rounded-2xl border border-dashed border-line-strong p-4">
