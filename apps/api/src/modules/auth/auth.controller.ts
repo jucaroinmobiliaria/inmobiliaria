@@ -2,11 +2,11 @@ import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res } from "@nestjs/
 import type { Request, Response } from "express";
 import { type AuthUser, AuthLimit, Auth, Me, Public } from "../../common/decorators.js";
 import { ZodPipe } from "../../common/zod.js";
-import type { SessionUser } from "../../contract.js";
+import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import { AuthService, type ReqMeta } from "./auth.service.js";
 import {
-  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type UpdateMeDto,
-  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resetSchema, updateMeSchema,
+  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type ResendVerificationDto, type UpdateMeDto, type VerifyEmailDto,
+  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resendVerificationSchema, resetSchema, updateMeSchema, verifyEmailSchema,
 } from "./dto.js";
 
 const metaOf = (req: Request): ReqMeta => ({ ip: req.ip, userAgent: req.headers["user-agent"] });
@@ -16,10 +16,21 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public() @AuthLimit() @Post("register") @HttpCode(201)
-  async register(@Body(new ZodPipe(registerSchema)) dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ user: SessionUser }> {
-    const { user, tokens } = await this.auth.register(dto, metaOf(req));
+  async register(@Body(new ZodPipe(registerSchema)) dto: RegisterDto): Promise<RegisterPendingDTO> {
+    return this.auth.register(dto);
+  }
+
+  @Public() @AuthLimit() @Post("verify-email") @HttpCode(200)
+  async verifyEmail(@Body(new ZodPipe(verifyEmailSchema)) dto: VerifyEmailDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ user: SessionUser }> {
+    const { user, tokens } = await this.auth.verifyEmail(dto.token, metaOf(req));
     this.auth.setCookies(res, tokens);
     return { user };
+  }
+
+  @Public() @AuthLimit() @Post("resend-verification") @HttpCode(200)
+  async resendVerification(@Body(new ZodPipe(resendVerificationSchema)) dto: ResendVerificationDto): Promise<{ ok: true }> {
+    await this.auth.resendVerification(dto.email);
+    return { ok: true };
   }
 
   @Public() @AuthLimit() @Post("login") @HttpCode(200)

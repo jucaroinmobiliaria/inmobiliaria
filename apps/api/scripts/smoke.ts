@@ -129,6 +129,12 @@ class Client {
   async login(email: string, password: string): Promise<Res> {
     return this.post("/auth/login", { email, password });
   }
+  /** Registro pendiente + confirmación con verifyToken (solo fuera de producción). */
+  async registerAndVerify(body: unknown): Promise<Res> {
+    const pending = await this.post("/auth/register", body);
+    if (pending.status !== 201 || typeof pending.data?.verifyToken !== "string") return pending;
+    return this.post("/auth/verify-email", { token: pending.data.verifyToken });
+  }
 }
 
 /* ------------------------------------------------------------------ validador de formas (types.ts) */
@@ -243,6 +249,9 @@ const visitRowSpec = O({
 const sessionUserSpec = O({
   id: "s", email: "s", name: "s", phone: "ns", avatarUrl: "ns", role: ROLE, verified: "b", createdAt: "iso",
   profile: O({ displayName: "ns", bio: "ns", whatsapp: "ns", company: "ns", website: "ns", city: "ns" }), unreadNotifications: "n",
+});
+const registerPendingSpec = O({
+  ok: "b", needsVerification: "b", email: "s", name: "s", verifyToken: OPT("s"),
 });
 const notificationSpec = O({ id: "s", type: "s", title: "s", body: "ns", link: "ns", readAt: "niso", createdAt: "iso" });
 const savedSearchSpec = O({ id: "s", name: "s", query: "any", frequency: S("NONE", "INSTANT", "DAILY", "WEEKLY"), createdAt: "iso", newCount: "n" });
@@ -588,19 +597,51 @@ async function main(): Promise<void> {
     const noBody = await c.post("/auth/register", {});
     check("registro vacío -> 400 con errors", noBody.status === 400 && noBody.data?.errors && Object.keys(noBody.data.errors).length >= 2, noBody.data);
 
-    const reg = await c.post("/auth/register", { name: "<b>Prueba</b> Humo <script>alert(1)</script>", email: W.ownerEmail, password: DEMO, phone: "+57 300 123 4567", role: "USER" });
-    check("registro 201 con { user }", reg.status === 201 && reg.data?.user?.email === W.ownerEmail, reg.data);
-    shape("SessionUser (register)", reg.data?.user, sessionUserSpec);
+    const pending = await c.post("/auth/register", { name: "<b>Prueba</b> Humo <script>alert(1)</script>", email: W.ownerEmail, password: DEMO, phone: "+57 300 123 4567", role: "USER" });
+    check("registro 201 needsVerification, sin sesión", pending.status === 201 && pending.data?.ok === true && pending.data?.needsVerification === true && pending.data?.email === W.ownerEmail && !pending.data?.user, pending.data);
+    shape("RegisterPendingDTO", pending.data, registerPendingSpec);
+    check("sanitización: se eliminan etiquetas HTML del nombre pendiente", typeof pending.data?.name === "string" && !/[<>]/.test(pending.data.name) && pending.data.name.includes("Prueba"), pending.data?.name);
+    check("sin contraseña ni hash en la respuesta pendiente", !JSON.stringify(pending.data).match(/password|hash/i));
+    check("registro pendiente no emite cookies", !c.cookie("access_token") && !c.cookie("refresh_token"), [...c.jar.keys()]);
+    check("verifyToken presente fuera de producción", typeof pending.data?.verifyToken === "string" && pending.data.verifyToken.length >= 20, pending.data?.verifyToken);
+
+    const rs = await new Client("rs").post("/auth/resend-verification", { email: W.ownerEmail });
+    check("resend-verification -> { ok: true }", rs.status === 200 && rs.data?.ok === true, rs.data);
+    const rsGhost = await new Client("rs2").post("/auth/resend-verification", { email: "nadie@example.test" });
+    check("resend con email inexistente -> mismo { ok: true }", rsGhost.status === 200 && rsGhost.data?.ok === true);
+    const earlyLogin = await new Client("early").login(W.ownerEmail, DEMO);
+    check("login antes de verificar -> 401 genérico", earlyLogin.status === 401 && hasPlainSpanish(earlyLogin.data?.message), earlyLogin.data);
+    const mePending = await c.get("/auth/me");
+    check("GET /auth/me tras registro pendiente -> 401", mePending.status === 401, mePending.status);
+    const badVerify = await c.post("/auth/verify-email", { token: "x".repeat(48) });
+    check("verify-email con token inválido -> 400", badVerify.status === 400 && hasPlainSpanish(badVerify.data?.message), badVerify.data);
+
+    const reg = await c.post("/auth/verify-email", { token: pending.data.verifyToken });
+    check("verify-email 200 con { user }", reg.status === 200 && reg.data?.user?.email === W.ownerEmail, reg.data);
+    shape("SessionUser (verify-email)", reg.data?.user, sessionUserSpec);
     check("sanitización: se eliminan etiquetas HTML del nombre", reg.data?.user && !/[<>]/.test(reg.data.user.name) && reg.data.user.name.includes("Prueba"), reg.data?.user?.name);
-    check("sin contraseña ni hash en la respuesta", !JSON.stringify(reg.data).match(/password|hash/i));
+    check("sin contraseña ni hash en la respuesta de verify", !JSON.stringify(reg.data).match(/password|hash/i));
     const access = reg.setCookies.find((s) => s.startsWith("access_token="));
     const refresh = reg.setCookies.find((s) => s.startsWith("refresh_token="));
     check("cookies access_token y refresh_token", !!access && !!refresh);
     check("cookies httpOnly, Path=/, SameSite=Lax", !!access && !!refresh && [access, refresh].every((s) => /httponly/i.test(s) && /path=\//i.test(s) && /samesite=lax/i.test(s)), [access, refresh]);
     check("access 30 min (max-age=1800) y refresh 30 días", !!access && !!refresh && /max-age=1800/i.test(access) && /max-age=2592000/i.test(refresh), [access?.split(";").slice(1), refresh?.split(";").slice(1)]);
+    const reused = await new Client("reused").post("/auth/verify-email", { token: pending.data.verifyToken });
+    check("verify-email con token ya usado -> 400", reused.status === 400, reused.data);
 
     const dup = await new Client("dup").post("/auth/register", { name: "Otra Persona", email: W.ownerEmail.toUpperCase(), password: DEMO });
     check("email duplicado (otra capitalización) -> 409", dup.status === 409 && hasPlainSpanish(dup.data?.message), dup.data);
+
+    const steal = `dueño.${RUN}@example.test`;
+    const atk = new Client("atk");
+    const first = await atk.post("/auth/register", { name: "Atacante", email: steal, password: DEMO });
+    const real = new Client("real");
+    const second = await real.post("/auth/register", { name: "Dueño Real", email: steal, password: "ClaveDueño123" });
+    check("re-registro pendiente reemplaza el anterior", first.status === 201 && second.status === 201, { first: first.status, second: second.status });
+    const oldTok = await atk.post("/auth/verify-email", { token: first.data?.verifyToken });
+    check("el token del primero ya no vale -> 400", oldTok.status === 400, oldTok.status);
+    const owned = await real.post("/auth/verify-email", { token: second.data?.verifyToken });
+    check("el segundo registro crea la cuenta del dueño", owned.status === 200 && typeof owned.data?.user?.name === "string" && owned.data.user.name.includes("Dueño"), owned.data);
 
     const me = await c.get("/auth/me");
     check("GET /auth/me 200 con la sesión de cookies", me.status === 200 && me.data?.user?.email === W.ownerEmail);
@@ -649,8 +690,8 @@ async function main(): Promise<void> {
   await step("Refresh con rotación y detección de reutilización", async () => {
     const c = new Client("rot");
     const email = `rot.${RUN}@example.test`;
-    const reg = await c.post("/auth/register", { name: "Rotación Prueba", email, password: DEMO });
-    check("registro del usuario de rotación", reg.status === 201, reg.status);
+    const reg = await c.registerAndVerify({ name: "Rotación Prueba", email, password: DEMO });
+    check("registro del usuario de rotación", reg.status === 200, reg.status);
     const r0 = c.cookie("refresh_token")!;
     const a0 = c.cookie("access_token")!;
     const rf = await c.post("/auth/refresh");
@@ -683,7 +724,7 @@ async function main(): Promise<void> {
     // logout / cambio de clave: el token revocado NO se acepta y NO arrastra a las demás sesiones
     const email2 = `lo.${RUN}@example.test`;
     const c2 = new Client("lo");
-    await c2.post("/auth/register", { name: "Logout Prueba", email: email2, password: DEMO });
+    await c2.registerAndVerify({ name: "Logout Prueba", email: email2, password: DEMO });
     const c2b = new Client("lo-b");
     await c2b.login(email2, DEMO);
     const rt = c2.cookie("refresh_token")!;
@@ -720,7 +761,7 @@ async function main(): Promise<void> {
     check("borrador nuevo: completion.percent < 100 y missing no vacío", d.data.completion.percent < 100 && d.data.completion.missing.length > 0, d.data.completion);
     check("un USER pasa a OWNER al crear su primer borrador", (await o.get("/auth/me")).data.user.role === "OWNER");
 
-    const minimal = await new Client("min").post("/auth/register", { name: "Sin Tipo", email: `min.${RUN}@example.test`, password: DEMO });
+    const minimal = await new Client("min").registerAndVerify({ name: "Sin Tipo", email: `min.${RUN}@example.test`, password: DEMO });
     void minimal;
     const mc = new Client("min2");
     await mc.login(`min.${RUN}@example.test`, DEMO);
@@ -782,7 +823,7 @@ async function main(): Promise<void> {
     const anonPre = await new Client("ap").post(`/publications/${pubId}/images/presign`, { files: [{ name: "x.png", mime: "image/png", size: 100, checksum: "abcdef123456" }] });
     check("presign sin sesión -> 401", anonPre.status === 401);
     const other = new Client("otro");
-    await other.post("/auth/register", { name: "Otro Usuario", email: `otro.${RUN}@example.test`, password: DEMO });
+    await other.registerAndVerify({ name: "Otro Usuario", email: `otro.${RUN}@example.test`, password: DEMO });
     const notMine = await other.post(`/publications/${pubId}/images/presign`, { files: [{ name: "x.png", mime: "image/png", size: 100, checksum: "abcdef123456" }] });
     check("presign sobre aviso ajeno -> 404", notMine.status === 404, notMine.status);
 
@@ -1092,8 +1133,8 @@ async function main(): Promise<void> {
     const demo = await new Client("demo-usuario").login("usuario@nido.co", DEMO);
     check("login de la cuenta demo usuario@nido.co", demo.status === 200 && demo.data?.user?.role === "USER", demo.data);
     W.buyerEmail = `buyer.${RUN}@example.test`;
-    const lg = await b.post("/auth/register", { name: "Laura Compradora", email: W.buyerEmail, password: DEMO, phone: "3105551234" });
-    check("registro del comprador de la prueba", lg.status === 201 && lg.data?.user?.role === "USER", lg.data);
+    const lg = await b.registerAndVerify({ name: "Laura Compradora", email: W.buyerEmail, password: DEMO, phone: "3105551234" });
+    check("registro del comprador de la prueba", lg.status === 200 && lg.data?.user?.role === "USER", lg.data);
     const none = await new Client("n").get("/favorites");
     check("GET /favorites sin sesión -> 401", none.status === 401);
     const before = await b.get("/favorites/ids");
@@ -1158,7 +1199,7 @@ async function main(): Promise<void> {
     check("abrir el hilo lo marca leído para el dueño", read.data.find((r: J) => r.id === W.inquiryId)?.unread === false);
 
     const stranger = new Client("extraño");
-    await stranger.post("/auth/register", { name: "Curioso Extraño", email: `x.${RUN}@example.test`, password: DEMO });
+    await stranger.registerAndVerify({ name: "Curioso Extraño", email: `x.${RUN}@example.test`, password: DEMO });
     const peek = await stranger.get(`/inquiries/${W.inquiryId}`);
     check("un tercero no puede leer el hilo -> 404", peek.status === 404, peek.status);
     const peekMsg = await stranger.post(`/inquiries/${W.inquiryId}/messages`, { body: "Intruso" });
@@ -1450,7 +1491,7 @@ async function main(): Promise<void> {
     // bloqueo efectivo
     const victim = new Client("victim");
     const email = `bloq.${RUN}@example.test`;
-    await victim.post("/auth/register", { name: "Usuario Bloqueable", email, password: DEMO });
+    await victim.registerAndVerify({ name: "Usuario Bloqueable", email, password: DEMO });
     const vrow = (await a.get(`/admin/users?q=${encodeURIComponent(email)}`)).data.items[0];
     const blk = await a.patch(`/admin/users/${vrow.id}`, { status: "BLOCKED" });
     check("bloquear usuario", blk.status === 200, blk.data);
@@ -1464,7 +1505,7 @@ async function main(): Promise<void> {
 
     const doomed = new Client("doomed");
     const delEmail = `del.${RUN}@example.test`;
-    await doomed.post("/auth/register", { name: "Usuario Eliminable", email: delEmail, password: DEMO });
+    await doomed.registerAndVerify({ name: "Usuario Eliminable", email: delEmail, password: DEMO });
     const drow = (await a.get(`/admin/users?q=${encodeURIComponent(delEmail)}`)).data.items[0];
     const selfDel = await a.del(`/admin/users/${meAdmin.id}`);
     check("el admin no puede eliminarse a sí mismo -> 400/403/409", [400, 403, 409].includes(selfDel.status), selfDel.status);

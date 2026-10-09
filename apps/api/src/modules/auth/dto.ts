@@ -54,3 +54,11 @@ export const resetSchema = z.object({
   password,
 });
 export type ResetDto = z.infer<typeof resetSchema>;
+
+export const verifyEmailSchema = z.object({
+  token: z.string({ error: "El enlace no es válido" }).min(20, "El enlace no es válido").max(200, "El enlace no es válido"),
+});
+export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
+
+export const resendVerificationSchema = forgotSchema;
+export type ResendVerificationDto = ForgotDto;

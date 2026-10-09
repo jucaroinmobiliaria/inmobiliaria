@@ -6,10 +6,13 @@ import type { CookieOptions, Response } from "express";
 import { AuditService } from "../../common/audit.service.js";
 import { env } from "../../common/config.js";
 import { MailerService, mailLayout } from "../../common/mailer.service.js";
-import { PrismaService } from "../../common/prisma.service.js";
+import { Prisma, PrismaService } from "../../common/prisma.service.js";
 import type { Role } from "../../generated/prisma/client.js";
-import type { SessionUser } from "../../contract.js";
+import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import type { ChangePasswordDto, LoginDto, RegisterDto, ResetDto, UpdateMeDto } from "./dto.js";
+
+const VERIFY_TTL_MS = 24 * 3600_000;
+const RESEND_COOLDOWN_MS = 45_000;
 
 export const ACCESS_TTL_S = 30 * 60;
 export const REFRESH_TTL_S = 30 * 24 * 3600;
@@ -96,26 +99,100 @@ export class AuthService {
     };
   }
 
-  async register(dto: RegisterDto, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+  async register(dto: RegisterDto): Promise<RegisterPendingDTO> {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true } });
     if (exists) throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
     const role = dto.role ?? "USER";
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        phone: dto.phone ?? null,
-        passwordHash,
-        role,
-        profile: { create: {} },
-        ...(role === "AGENT" ? { agent: { create: {} } } : {}),
-      },
-      select: { id: true, role: true },
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.$transaction(async (tx) => {
+      await tx.emailVerification.deleteMany({ where: { email: dto.email, usedAt: null } });
+      await tx.emailVerification.create({
+        data: {
+          email: dto.email,
+          name: dto.name,
+          passwordHash,
+          phone: dto.phone ?? null,
+          role,
+          tokenHash: sha256(token),
+          expiresAt: new Date(Date.now() + VERIFY_TTL_MS),
+        },
+      });
     });
-    await this.audit.log({ actorId: user.id, action: "auth.register", entity: "User", entityId: user.id, meta: { role } });
-    const tokens = await this.issue(user.id, user.role, meta);
-    return { user: await this.sessionUser(user.id), tokens };
+    await this.sendVerifyMail(dto.email, dto.name, token);
+    const out: RegisterPendingDTO = { ok: true, needsVerification: true, email: dto.email, name: dto.name };
+    if (!env.isProd) out.verifyToken = token;
+    return out;
+  }
+
+  async verifyEmail(token: string, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const row = await this.prisma.emailVerification.findUnique({ where: { tokenHash: sha256(token) } });
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
+    }
+    const taken = await this.prisma.user.findUnique({ where: { email: row.email }, select: { id: true } });
+    if (taken) throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
+    const claimed = await this.prisma.emailVerification.updateMany({
+      where: { id: row.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
+    }
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: row.email,
+          name: row.name,
+          phone: row.phone,
+          passwordHash: row.passwordHash,
+          role: row.role,
+          profile: { create: {} },
+          ...(row.role === "AGENT" ? { agent: { create: {} } } : {}),
+        },
+        select: { id: true, role: true },
+      });
+      await this.audit.log({ actorId: user.id, action: "auth.register", entity: "User", entityId: user.id, meta: { role: user.role } });
+      const tokens = await this.issue(user.id, user.role, meta);
+      return { user: await this.sessionUser(user.id), tokens };
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
+      }
+      throw e;
+    }
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    const pending = await this.prisma.emailVerification.findFirst({
+      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!pending) return;
+    if (Date.now() - pending.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.emailVerification.update({
+      where: { id: pending.id },
+      data: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
+    });
+    await this.sendVerifyMail(email, pending.name, token);
+  }
+
+  private async sendVerifyMail(to: string, name: string, token: string): Promise<void> {
+    const url = `${env.webUrl}/confirmar-correo?token=${token}`;
+    await this.mailer.send({
+      to,
+      subject: `Confirma tu correo en ${env.SITE_NAME}`,
+      text: `Hola ${name},\n\nPara crear tu cuenta, abre este enlace (vence en 24 horas):\n${url}\n\nSi no pediste esta cuenta, ignora este mensaje. No se creará nada.`,
+      html: mailLayout(
+        "Confirma tu correo",
+        [
+          `Hola ${name}, usa el botón para confirmar tu correo y crear tu cuenta. El enlace vence en 24 horas.`,
+          "Si no pediste esta cuenta, ignora este mensaje. No se creará nada.",
+        ],
+        { label: "Confirmar correo", url },
+      ),
+    });
   }
 
   private getDummyHash(): Promise<string> {

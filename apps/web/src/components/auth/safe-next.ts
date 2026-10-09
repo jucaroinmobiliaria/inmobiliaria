@@ -6,7 +6,7 @@ export function safeNext(raw: string | string[] | null | undefined): string | nu
   if (!v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\")) return null;
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f\\]/.test(v)) return null;
-  if (/^\/(ingresar|registro|recuperar|restablecer)(\/|\?|#|$)/.test(v)) return null;
+  if (/^\/(ingresar|registro|recuperar|restablecer|confirmar-correo)(\/|\?|#|$)/.test(v)) return null;
   return v;
 }
 

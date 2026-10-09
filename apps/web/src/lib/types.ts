@@ -51,6 +51,15 @@ export interface SessionUser {
   unreadNotifications: number;
 }
 
+export interface RegisterPendingDTO {
+  ok: true;
+  needsVerification: true;
+  email: string;
+  name: string;
+  /** Solo en desarrollo, para pruebas. Nunca se envía en producción. */
+  verifyToken?: string;
+}
+
 /* ---------- Catálogo ---------- */
 export interface CatalogType { id: string; slug: string; name: string; pluralName: string; icon: string; group: string }
 export interface CatalogAmenity { id: string; slug: string; name: string; icon: string; category: AmenityCategory }
