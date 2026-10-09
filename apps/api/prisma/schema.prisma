@@ -1,0 +1,489 @@
+// Esquema de datos de Nido — inmobiliaria virtual (PostgreSQL)
+// Las imágenes NO se guardan en la BD: solo su clave de almacenamiento y metadatos.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  AGENT
+  OWNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum Operation {
+  SALE
+  RENT
+}
+
+enum PublicationStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  PAUSED
+  REJECTED
+  SOLD
+  RENTED
+  EXPIRED
+}
+
+enum Condition {
+  NEW
+  USED
+  OFF_PLAN
+}
+
+enum ImageStatus {
+  PENDING
+  READY
+}
+
+enum InquiryStatus {
+  NEW
+  REPLIED
+  CLOSED
+}
+
+enum VisitStatus {
+  REQUESTED
+  CONFIRMED
+  DONE
+  CANCELLED
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum AlertFrequency {
+  NONE
+  INSTANT
+  DAILY
+  WEEKLY
+}
+
+enum AmenityCategory {
+  INTERIOR
+  BUILDING
+  EXTERIOR
+  SURROUNDINGS
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  phone        String?
+  avatarUrl    String?
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  verified     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastLoginAt  DateTime?
+
+  profile        Profile?
+  agent          Agent?
+  properties     Property[]
+  refreshTokens  RefreshToken[]
+  favorites      Favorite[]
+  inquiries      Inquiry[]        @relation("InquirySender")
+  visits         Visit[]          @relation("VisitRequester")
+  savedSearches  SavedSearch[]
+  reports        Report[]
+  notifications  Notification[]
+  messages       InquiryMessage[]
+  auditLogs      AuditLog[]
+  resetTokens    PasswordReset[]
+
+  @@index([role, status])
+}
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  displayName String?
+  slug        String? @unique
+  bio         String?
+  whatsapp    String?
+  company     String?
+  website     String?
+  city        String?
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Agency {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  description String?
+  phone       String?
+  website     String?
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  agents      Agent[]
+}
+
+model Agent {
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  agencyId  String?
+  license   String?
+  verified  Boolean @default(false)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency    Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  rotatedAt DateTime? // se fija solo al rotar (refresh): distingue "reemplazado por otro" de "revocado" (logout, cambio de clave, bloqueo)
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---- Catálogos ----------------------------------------------------------------
+
+model City {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  department    String
+  lat           Float
+  lng           Float
+  active        Boolean        @default(true)
+  coverUrl      String?
+  neighborhoods Neighborhood[]
+  locations     PropertyLocation[]
+}
+
+model Neighborhood {
+  id        String  @id @default(cuid())
+  cityId    String
+  slug      String
+  name      String
+  lat       Float
+  lng       Float
+  city      City    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  locations PropertyLocation[]
+
+  @@unique([cityId, slug])
+}
+
+model PropertyType {
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  name       String
+  pluralName String
+  icon       String     @default("home")
+  group      String     @default("residential")
+  sortOrder  Int        @default(0)
+  properties Property[]
+}
+
+model Amenity {
+  id        String          @id @default(cuid())
+  slug      String          @unique
+  name      String
+  icon      String          @default("check")
+  category  AmenityCategory @default(INTERIOR)
+  sortOrder Int             @default(0)
+  features  PropertyFeature[]
+}
+
+// ---- Inmueble (físico) y publicación (aviso) ---------------------------------
+
+model Property {
+  id          String    @id @default(cuid())
+  ownerId     String
+  typeId      String? // null mientras el borrador no tiene tipo elegido
+  condition   Condition @default(USED)
+  area        Float?
+  landArea    Float?
+  bedrooms    Int?
+  bathrooms   Int?
+  parking     Int?
+  floor       Int?
+  totalFloors Int?
+  stratum     Int?
+  ageYears    Int?
+  furnished   Boolean   @default(false)
+  petFriendly Boolean   @default(false)
+  adminFee    BigInt?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner        User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type         PropertyType?     @relation(fields: [typeId], references: [id])
+  location     PropertyLocation?
+  images       PropertyImage[]
+  features     PropertyFeature[]
+  publications Publication[]
+
+  @@index([ownerId])
+  @@index([typeId])
+}
+
+model PropertyLocation {
+  id             String        @id @default(cuid())
+  propertyId     String        @unique
+  cityId         String? // null mientras el borrador no tiene ciudad
+  neighborhoodId String?
+  address        String?
+  hideAddress    Boolean       @default(true)
+  lat            Float?
+  lng            Float?
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  city           City?         @relation(fields: [cityId], references: [id])
+  neighborhood   Neighborhood? @relation(fields: [neighborhoodId], references: [id])
+
+  @@index([cityId, neighborhoodId])
+  @@index([lat, lng])
+}
+
+model PropertyFeature {
+  propertyId String
+  amenityId  String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+}
+
+model PropertyImage {
+  id         String      @id @default(cuid())
+  propertyId String
+  key        String      @unique
+  url        String
+  width      Int?
+  height     Int?
+  sizeBytes  Int?
+  mime       String?
+  checksum   String?
+  position   Int         @default(0)
+  isCover    Boolean     @default(false)
+  roomLabel  String?
+  caption    String?
+  status     ImageStatus @default(PENDING)
+  // Reemplazo en curso: { key, mime, size, checksum, width, height } hasta que /confirm lo aplica
+  pending    Json?
+  createdAt  DateTime    @default(now())
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, position])
+  @@index([propertyId, checksum])
+}
+
+model Publication {
+  id                String            @id @default(cuid())
+  code              Int               @unique @default(autoincrement())
+  propertyId        String
+  operation         Operation
+  status            PublicationStatus @default(DRAFT)
+  title             String?
+  slug              String?
+  description       String?
+  price             BigInt?
+  currency          String            @default("COP")
+  negotiable        Boolean           @default(false)
+  videoUrl          String?
+  tourUrl           String?
+  availableFrom     DateTime?
+  minContractMonths Int?
+  showPhone         Boolean           @default(true)
+  showWhatsapp      Boolean           @default(true)
+  featured          Boolean           @default(false)
+  featuredUntil     DateTime?
+  moderationNote    String?
+  viewCount         Int               @default(0)
+  publishedAt       DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  property     Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  favorites    Favorite[]
+  inquiries    Inquiry[]
+  visits       Visit[]
+  reports      Report[]
+  priceHistory PriceHistory[]
+  stats        PublicationStatDaily[]
+
+  @@index([status, operation, publishedAt])
+  @@index([status, featured])
+  @@index([propertyId])
+  @@index([price])
+}
+
+model PriceHistory {
+  id            String      @id @default(cuid())
+  publicationId String
+  price         BigInt
+  createdAt     DateTime    @default(now())
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@index([publicationId, createdAt])
+}
+
+model PublicationStatDaily {
+  id            String      @id @default(cuid())
+  publicationId String
+  date          DateTime    @db.Date
+  views         Int         @default(0)
+  favorites     Int         @default(0)
+  inquiries     Int         @default(0)
+  shares        Int         @default(0)
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@unique([publicationId, date])
+}
+
+// ---- Interacción ---------------------------------------------------------------
+
+model Favorite {
+  userId        String
+  publicationId String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, publicationId])
+  @@index([publicationId])
+}
+
+model Inquiry {
+  id            String        @id @default(cuid())
+  publicationId String
+  senderId      String?
+  name          String
+  email         String
+  phone         String?
+  status        InquiryStatus @default(NEW)
+  lastMessageAt DateTime      @default(now())
+  readByOwner   Boolean       @default(false)
+  readBySender  Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  publication   Publication   @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  sender        User?         @relation("InquirySender", fields: [senderId], references: [id], onDelete: SetNull)
+  messages      InquiryMessage[]
+
+  @@index([publicationId, status])
+  @@index([senderId])
+}
+
+model InquiryMessage {
+  id         String   @id @default(cuid())
+  inquiryId  String
+  senderId   String?
+  fromOwner  Boolean  @default(false)
+  body       String
+  createdAt  DateTime @default(now())
+  inquiry    Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  sender     User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId, createdAt])
+}
+
+model Visit {
+  id            String      @id @default(cuid())
+  publicationId String
+  requesterId   String?
+  name          String
+  email         String
+  phone         String?
+  scheduledAt   DateTime
+  status        VisitStatus @default(REQUESTED)
+  note          String?
+  createdAt     DateTime    @default(now())
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  requester     User?       @relation("VisitRequester", fields: [requesterId], references: [id], onDelete: SetNull)
+
+  @@index([publicationId, scheduledAt])
+}
+
+model SavedSearch {
+  id             String         @id @default(cuid())
+  userId         String
+  name           String
+  query          Json
+  frequency      AlertFrequency @default(DAILY)
+  lastNotifiedAt DateTime?
+  createdAt      DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  publicationId String
+  reporterId    String?
+  reason        String
+  details       String?
+  status        ReportStatus @default(OPEN)
+  createdAt     DateTime     @default(now())
+  publication   Publication  @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  reporter      User?        @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

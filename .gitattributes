@@ -1,0 +1,11 @@
+# Finales de línea consistentes entre Windows, macOS y Linux
+* text=auto eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff2 binary

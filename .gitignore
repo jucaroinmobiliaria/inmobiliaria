@@ -1,0 +1,34 @@
+# Dependencias y compilados
+node_modules/
+.next/
+.next-*/
+dist/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Cliente de Prisma (se genera con `prisma generate`)
+src/generated/
+
+# Variables de entorno (los *.example SÍ se versionan)
+.env
+.env.*
+!.env.example
+
+# Archivos subidos en desarrollo (driver de almacenamiento local)
+uploads/
+
+# Vercel / Docker / logs
+.vercel/
+*.log
+npm-debug.log*
+
+# Editor y sistema
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

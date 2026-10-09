@@ -1,0 +1,253 @@
+import { createHash, randomBytes } from "node:crypto";
+import { ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException, BadRequestException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import bcrypt from "bcryptjs";
+import type { CookieOptions, Response } from "express";
+import { AuditService } from "../../common/audit.service.js";
+import { env } from "../../common/config.js";
+import { MailerService, mailLayout } from "../../common/mailer.service.js";
+import { PrismaService } from "../../common/prisma.service.js";
+import type { Role } from "../../generated/prisma/client.js";
+import type { SessionUser } from "../../contract.js";
+import type { ChangePasswordDto, LoginDto, RegisterDto, ResetDto, UpdateMeDto } from "./dto.js";
+
+export const ACCESS_TTL_S = 30 * 60;
+export const REFRESH_TTL_S = 30 * 24 * 3600;
+const BCRYPT_COST = 12;
+
+export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+
+export interface ReqMeta {
+  ip?: string;
+  userAgent?: string;
+}
+
+interface IssuedTokens {
+  access: string;
+  refresh: string;
+}
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger("Auth");
+  private dummyHash: Promise<string> | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly audit: AuditService,
+    private readonly mailer: MailerService,
+  ) {}
+
+  /* ---------- Cookies ---------- */
+  private cookieBase(): CookieOptions {
+    return { httpOnly: true, sameSite: "lax", secure: env.isProd, path: "/" };
+  }
+  setCookies(res: Response, t: IssuedTokens): void {
+    res.cookie("access_token", t.access, { ...this.cookieBase(), maxAge: ACCESS_TTL_S * 1000 });
+    res.cookie("refresh_token", t.refresh, { ...this.cookieBase(), maxAge: REFRESH_TTL_S * 1000 });
+  }
+  clearCookies(res: Response): void {
+    res.clearCookie("access_token", this.cookieBase());
+    res.clearCookie("refresh_token", this.cookieBase());
+  }
+
+  /* ---------- Tokens ---------- */
+  private async issue(userId: string, role: string, meta: ReqMeta): Promise<IssuedTokens> {
+    const access = await this.jwt.signAsync({ sub: userId, role }, { expiresIn: ACCESS_TTL_S });
+    const refresh = randomBytes(48).toString("base64url");
+    await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: sha256(refresh),
+        expiresAt: new Date(Date.now() + REFRESH_TTL_S * 1000),
+        userAgent: meta.userAgent?.slice(0, 250) ?? null,
+        ip: meta.ip?.slice(0, 64) ?? null,
+      },
+    });
+    return { access, refresh };
+  }
+
+  /* ---------- Sesión ---------- */
+  async sessionUser(userId: string): Promise<SessionUser> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true, _count: { select: { notifications: { where: { readAt: null } } } } },
+    });
+    if (!u) throw new UnauthorizedException("La sesión ya no es válida");
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      phone: u.phone,
+      avatarUrl: u.avatarUrl,
+      role: u.role,
+      verified: u.verified,
+      createdAt: u.createdAt.toISOString(),
+      profile: {
+        displayName: u.profile?.displayName ?? null,
+        bio: u.profile?.bio ?? null,
+        whatsapp: u.profile?.whatsapp ?? null,
+        company: u.profile?.company ?? null,
+        website: u.profile?.website ?? null,
+        city: u.profile?.city ?? null,
+      },
+      unreadNotifications: u._count.notifications,
+    };
+  }
+
+  async register(dto: RegisterDto, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const exists = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true } });
+    if (exists) throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
+    const role = dto.role ?? "USER";
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        name: dto.name,
+        phone: dto.phone ?? null,
+        passwordHash,
+        role,
+        profile: { create: {} },
+        ...(role === "AGENT" ? { agent: { create: {} } } : {}),
+      },
+      select: { id: true, role: true },
+    });
+    await this.audit.log({ actorId: user.id, action: "auth.register", entity: "User", entityId: user.id, meta: { role } });
+    const tokens = await this.issue(user.id, user.role, meta);
+    return { user: await this.sessionUser(user.id), tokens };
+  }
+
+  private getDummyHash(): Promise<string> {
+    this.dummyHash ??= bcrypt.hash("nido-dummy-password", BCRYPT_COST);
+    return this.dummyHash;
+  }
+
+  async login(dto: LoginDto, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const u = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true, passwordHash: true, status: true, role: true } });
+    // Se compara siempre contra un hash para no revelar por tiempo si el correo existe.
+    const ok = await bcrypt.compare(dto.password, u?.passwordHash ?? (await this.getDummyHash()));
+    if (!u || !ok) {
+      await this.audit.log({ actorId: u?.id ?? null, action: "auth.login_failed", entity: "User", entityId: u?.id ?? null, meta: { email: dto.email, ip: meta.ip ?? null } });
+      throw new UnauthorizedException("Correo o contraseña incorrectos");
+    }
+    if (u.status === "BLOCKED") {
+      await this.audit.log({ actorId: u.id, action: "auth.login_blocked", entity: "User", entityId: u.id });
+      throw new ForbiddenException("Tu cuenta está bloqueada. Contacta a soporte");
+    }
+    await this.prisma.user.update({ where: { id: u.id }, data: { lastLoginAt: new Date() } });
+    await this.audit.log({ actorId: u.id, action: "auth.login", entity: "User", entityId: u.id, meta: { ip: meta.ip ?? null } });
+    const tokens = await this.issue(u.id, u.role, meta);
+    return { user: await this.sessionUser(u.id), tokens };
+  }
+
+  /** Rota el refresh token. Si un token ya rotado se vuelve a usar fuera de la ventana de gracia, se revocan todas las sesiones. */
+  async refresh(raw: string | undefined, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    if (!raw) throw new UnauthorizedException("No hay sesión para renovar");
+    const select = { id: true, userId: true, expiresAt: true, revokedAt: true, rotatedAt: true, user: { select: { id: true, role: true, status: true } } } as const;
+    const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: sha256(raw) }, select });
+    if (!row) throw new UnauthorizedException("La sesión expiró. Inicia sesión de nuevo");
+    if (row.revokedAt) return this.reusedToken(row, meta);
+    if (row.expiresAt < new Date() || row.user.status !== "ACTIVE") throw new UnauthorizedException("La sesión expiró. Inicia sesión de nuevo");
+    // Rotación atómica: solo una petición concurrente puede consumir el token.
+    const now = new Date();
+    const claimed = await this.prisma.refreshToken.updateMany({ where: { id: row.id, revokedAt: null }, data: { revokedAt: now, rotatedAt: now } });
+    if (claimed.count !== 1) {
+      // Otra petición acaba de rotarlo (p. ej. varias páginas precargadas con la misma cookie): se trata como reutilización dentro de la gracia.
+      const fresh = await this.prisma.refreshToken.findUnique({ where: { id: row.id }, select });
+      if (!fresh?.revokedAt) throw new UnauthorizedException("La sesión expiró. Inicia sesión de nuevo");
+      return this.reusedToken(fresh, meta);
+    }
+    const tokens = await this.issue(row.userId, row.user.role, meta);
+    return { user: await this.sessionUser(row.userId), tokens };
+  }
+
+  /**
+   * Token ya consumido. Revocado por logout/cambio de clave/bloqueo (sin `rotatedAt`): 401 sin más.
+   * Rotado hace pocos segundos: carrera legítima (varias peticiones con la misma cookie) → se emite un par nuevo sin revocar nada.
+   * Rotado hace más: posible robo del token → se revocan todas las sesiones del usuario y se audita.
+   */
+  private async reusedToken(
+    row: { userId: string; expiresAt: Date; rotatedAt: Date | null; user: { role: Role; status: string } },
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const expired = new UnauthorizedException("La sesión expiró. Inicia sesión de nuevo");
+    if (!row.rotatedAt) throw expired;
+    if (Date.now() - row.rotatedAt.getTime() <= env.REFRESH_REUSE_GRACE_SECONDS * 1000) {
+      if (row.expiresAt < new Date() || row.user.status !== "ACTIVE") throw expired;
+      const tokens = await this.issue(row.userId, row.user.role, meta);
+      return { user: await this.sessionUser(row.userId), tokens };
+    }
+    await this.prisma.refreshToken.updateMany({ where: { userId: row.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await this.audit.log({ actorId: row.userId, action: "auth.refresh_reuse_detected", entity: "User", entityId: row.userId, meta: { ip: meta.ip ?? null } });
+    this.logger.warn(`Reutilización de refresh token detectada para el usuario ${row.userId}; sesiones revocadas`);
+    throw expired;
+  }
+
+  async logout(raw: string | undefined): Promise<void> {
+    if (!raw) return;
+    await this.prisma.refreshToken.updateMany({ where: { tokenHash: sha256(raw), revokedAt: null }, data: { revokedAt: new Date() } });
+  }
+
+  async updateMe(userId: string, dto: UpdateMeDto): Promise<SessionUser> {
+    const userData: Record<string, unknown> = {};
+    if (dto.name !== undefined) userData.name = dto.name;
+    if (dto.phone !== undefined) userData.phone = dto.phone;
+    if (dto.avatarUrl !== undefined) userData.avatarUrl = dto.avatarUrl;
+    const profileData: Record<string, string | null> = {};
+    for (const k of ["displayName", "bio", "whatsapp", "company", "website", "city"] as const) {
+      if (dto[k] !== undefined) profileData[k] = dto[k] ?? null;
+    }
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: userData }),
+      this.prisma.profile.upsert({ where: { userId }, update: profileData, create: { userId, ...profileData } }),
+    ]);
+    return this.sessionUser(userId);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto, meta: ReqMeta): Promise<IssuedTokens> {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true, role: true } });
+    if (!u) throw new UnauthorizedException("La sesión ya no es válida");
+    if (!(await bcrypt.compare(dto.current, u.passwordHash))) {
+      await this.audit.log({ actorId: userId, action: "auth.change_password_failed", entity: "User", entityId: userId });
+      throw new BadRequestException({ message: "La contraseña actual no es correcta", errors: { current: ["La contraseña actual no es correcta"] } });
+    }
+    const passwordHash = await bcrypt.hash(dto.next, BCRYPT_COST);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+    await this.audit.log({ actorId: userId, action: "auth.change_password", entity: "User", entityId: userId });
+    return this.issue(userId, u.role, meta);
+  }
+
+  async forgot(email: string): Promise<void> {
+    const u = await this.prisma.user.findUnique({ where: { email }, select: { id: true, name: true, status: true } });
+    if (!u || u.status !== "ACTIVE") return;
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.passwordReset.create({ data: { userId: u.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 3600_000) } });
+    const url = `${env.webUrl}/restablecer?token=${token}`;
+    await this.audit.log({ actorId: u.id, action: "auth.forgot_password", entity: "User", entityId: u.id });
+    await this.mailer.send({
+      to: email,
+      subject: `Restablece tu contraseña de ${env.SITE_NAME}`,
+      text: `Hola ${u.name},\n\nUsa este enlace para crear una nueva contraseña (vence en 1 hora):\n${url}\n\nSi no fuiste tú, ignora este mensaje.`,
+      html: mailLayout("Restablece tu contraseña", [`Hola ${u.name}, usa el botón para crear una nueva contraseña. El enlace vence en 1 hora.`, "Si no fuiste tú, ignora este mensaje."], { label: "Crear nueva contraseña", url }),
+    });
+  }
+
+  async reset(dto: ResetDto): Promise<void> {
+    const row = await this.prisma.passwordReset.findUnique({ where: { tokenHash: sha256(dto.token) } });
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
+    }
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
+    const claimed = await this.prisma.passwordReset.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
+    if (claimed.count !== 1) throw new BadRequestException("El enlace no es válido o ya venció. Solicita uno nuevo");
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+      this.prisma.refreshToken.updateMany({ where: { userId: row.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+    await this.audit.log({ actorId: row.userId, action: "auth.reset_password", entity: "User", entityId: row.userId });
+  }
+}

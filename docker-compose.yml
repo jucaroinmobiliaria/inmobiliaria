@@ -1,0 +1,49 @@
+# Entorno local:  docker compose up -d            -> PostgreSQL 16 con el esquema y los datos de ejemplo
+#                 docker compose --profile storage up -d  -> además MinIO (almacenamiento S3 local para probar el driver s3)
+name: nido
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nido
+      POSTGRES_PASSWORD: nido
+      POSTGRES_DB: nido
+    ports: ["5432:5432"]
+    volumes:
+      - nido-db:/var/lib/postgresql/data
+      # Se ejecutan solo la primera vez (volumen vacío), en orden alfabético:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nido -d nido"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    profiles: ["storage"]
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: nido
+      MINIO_ROOT_PASSWORD: nidonido123
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000"
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [nido-media:/data]
+
+  minio-setup:
+    profiles: ["storage"]
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 nido nidonido123; do sleep 1; done;
+      mc mb -p local/nido-media;
+      mc anonymous set download local/nido-media;
+      echo 'Bucket nido-media listo';
+      "
+
+volumes:
+  nido-db:
+  nido-media:

@@ -1,0 +1,22 @@
+{
+  "name": "nido",
+  "private": true,
+  "description": "Nido — inmobiliaria virtual (Next.js + NestJS + PostgreSQL)",
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/web install",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "db:up": "docker compose up -d db",
+    "db:seed": "npm --prefix apps/api run db:seed",
+    "db:sql": "node apps/api/scripts/prisma-to-sql.mjs",
+    "build:api": "npm --prefix apps/api run build",
+    "build:web": "npm --prefix apps/web run build",
+    "check:images": "node scripts/check-images.mjs",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/web run typecheck",
+    "smoke": "npm --prefix apps/api run smoke"
+  },
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12"
+  }
+}
