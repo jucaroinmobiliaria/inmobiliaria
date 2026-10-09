@@ -27,6 +27,25 @@ const NAV: NavItem[] = [
 
 const ROLE_LABEL: Record<SessionUser["role"], string> = { USER: "Usuario", OWNER: "Propietario", AGENT: "Agente", ADMIN: "Administrador" };
 
+function AdminEntry({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link
+      href="/admin"
+      className={cn(
+        "group relative inline-flex shrink-0 items-center gap-2.5 overflow-hidden bg-brand-800 font-semibold text-white shadow-[0_10px_24px_-12px_rgb(8_82_64/0.95)] transition duration-300 hover:-translate-y-0.5 hover:bg-brand-900 hover:shadow-[0_14px_28px_-12px_rgb(8_82_64/1)]",
+        compact ? "h-10 gap-2 rounded-full px-4 text-sm" : "h-12 w-full rounded-full px-3.5 text-[15px]",
+      )}
+    >
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/20 opacity-0 transition duration-700 group-hover:left-full group-hover:opacity-100" />
+      <span className={cn("relative grid shrink-0 place-items-center rounded-full bg-white/15", compact ? "h-6 w-6" : "h-8 w-8")}>
+        <ShieldCheck className={compact ? "h-3.5 w-3.5" : "h-[18px] w-[18px]"} />
+      </span>
+      <span className="relative min-w-0 flex-1 truncate text-left">Administración</span>
+      <ArrowUpRight className="relative h-4 w-4 shrink-0 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+    </Link>
+  );
+}
+
 export function PanelShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: inbox } = useData<InquiryRow[]>("/inquiries?scope=received", { refreshInterval: 30_000 });
@@ -73,11 +92,7 @@ export function PanelShell({ user, children }: { user: SessionUser; children: Re
               })}
             </nav>
             <Button href="/publicar" className="w-full"><Plus className="h-[18px] w-[18px]" />Publicar inmueble</Button>
-            {user.role === "ADMIN" && (
-              <Link href="/admin" className="flex h-11 items-center gap-3 rounded-full border border-line px-4 text-sm font-semibold text-ink-2 transition hover:border-ink hover:text-ink">
-                <ShieldCheck className="h-[18px] w-[18px] text-brand-600" />Consola de administración<ArrowUpRight className="ml-auto h-4 w-4" />
-              </Link>
-            )}
+            {user.role === "ADMIN" && <AdminEntry />}
           </div>
         </aside>
 
@@ -96,6 +111,7 @@ export function PanelShell({ user, children }: { user: SessionUser; children: Re
                   </Link>
                 );
               })}
+              {user.role === "ADMIN" && <AdminEntry compact />}
             </div>
           </div>
           {children}

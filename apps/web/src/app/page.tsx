@@ -16,16 +16,14 @@ import { FaqAccordion } from "@/components/home/faq";
 import { FAQ } from "@/components/home/faq-data";
 import { JsonLd } from "@/components/home/json-ld";
 import { SectionHeader } from "@/components/home/section-header";
-import { HERO_IMAGES } from "@/lib/images";
-
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: { absolute: `${SITE.name} — ${SITE.tagline}` },
   description: SITE.description,
   alternates: { canonical: "/" },
-  openGraph: { type: "website", url: SITE.url, title: `${SITE.name} — ${SITE.tagline}`, description: SITE.description, locale: SITE.locale, siteName: SITE.name, images: [{ url: HERO_IMAGES[0]!.src, width: 1600, height: 900, alt: HERO_IMAGES[0]!.alt }] },
-  twitter: { card: "summary_large_image", title: `${SITE.name} — ${SITE.tagline}`, description: SITE.description, images: [HERO_IMAGES[0]!.src] },
+  openGraph: { type: "website", url: SITE.url, title: `${SITE.name} — ${SITE.tagline}`, description: SITE.description, locale: SITE.locale, siteName: SITE.name },
+  twitter: { card: "summary_large_image", title: `${SITE.name} — ${SITE.tagline}`, description: SITE.description },
 };
 
 const FALLBACK_TYPES = [
@@ -54,7 +52,7 @@ export default async function HomePage() {
       <JsonLd data={{
         "@context": "https://schema.org",
         "@graph": [
-          { "@type": "Organization", "@id": `${SITE.url}/#org`, name: SITE.name, url: SITE.url, logo: absoluteUrl("/icon.svg"), email: SITE.email, areaServed: "CO", description: SITE.description },
+          { "@type": "Organization", "@id": `${SITE.url}/#org`, name: SITE.name, url: SITE.url, logo: absoluteUrl("/brand/mark.png"), email: SITE.email, areaServed: "CO", description: SITE.description },
           { "@type": "WebSite", "@id": `${SITE.url}/#site`, url: SITE.url, name: SITE.name, inLanguage: "es-CO", publisher: { "@id": `${SITE.url}/#org` },
             potentialAction: { "@type": "SearchAction", target: { "@type": "EntryPoint", urlTemplate: `${SITE.url}/venta?q={search_term_string}` }, "query-input": "required name=search_term_string" } },
         ],

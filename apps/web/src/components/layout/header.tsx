@@ -20,7 +20,7 @@ const NAV = [
 
 export function Header() {
   const pathname = usePathname();
-  const { user, loading, logout } = useSession();
+  const { user, logout } = useSession();
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -48,7 +48,7 @@ export function Header() {
       <header className={cn("fixed inset-x-0 top-0 z-50 transition-all duration-500", onHero ? "bg-transparent" : "glass border-b border-line/80")}>
         <div className="container-x flex h-[68px] items-center justify-between gap-6">
           <div className="flex items-center gap-10">
-            <Logo light={onHero} animate />
+            <Logo light={onHero} />
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Principal">
               {NAV.map((n) => {
                 const active = pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/"));
@@ -68,7 +68,7 @@ export function Header() {
             )}
             <Link href="/favoritos" aria-label="Favoritos" className={cn("hidden h-10 w-10 place-items-center rounded-full sm:grid", onHero ? "text-white hover:bg-white/15" : "text-ink hover:bg-surface")}><Heart className="h-5 w-5" /></Link>
 
-            {loading ? <div className="skeleton h-10 w-24 rounded-full" /> : user ? (
+            {user ? (
               <div className="relative" ref={menuRef}>
                 <button onClick={() => setMenu((v) => !v)} aria-haspopup="menu" aria-expanded={menu}
                   className={cn("flex items-center gap-2 rounded-full border p-1 pr-3 transition", onHero ? "border-white/40 text-white hover:bg-white/15" : "border-line-strong hover:border-ink")}>
@@ -86,7 +86,11 @@ export function Header() {
                       <MenuLink href="/panel/mensajes" icon={<MessageCircle className="h-[18px] w-[18px]" />}>Mensajes</MenuLink>
                       <MenuLink href="/favoritos" icon={<Heart className="h-[18px] w-[18px]" />}>Favoritos</MenuLink>
                       <MenuLink href="/panel/cuenta" icon={<Settings className="h-[18px] w-[18px]" />}>Mi cuenta</MenuLink>
-                      {user.role === "ADMIN" && <MenuLink href="/admin" icon={<ShieldCheck className="h-[18px] w-[18px]" />}>Administración</MenuLink>}
+                      {user.role === "ADMIN" && (
+                        <Link role="menuitem" href="/admin" className="mt-1 flex items-center gap-3 rounded-xl bg-brand-800 px-3 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-10px_rgb(8_82_64/0.9)] hover:bg-brand-900">
+                          <ShieldCheck className="h-[18px] w-[18px]" />Panel de administración
+                        </Link>
+                      )}
                       <button role="menuitem" onClick={() => void logout()} className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-line px-3 py-2.5 text-sm font-medium text-ink-2 hover:bg-surface"><LogOut className="h-[18px] w-[18px]" />Cerrar sesión</button>
                     </motion.div>
                   )}
@@ -114,6 +118,7 @@ export function Header() {
                 <Link href="/favoritos" className="rounded-2xl px-4 py-3.5 font-display text-3xl hover:bg-surface">Favoritos</Link>
               </nav>
               <div className="mt-auto grid gap-3">
+                {user?.role === "ADMIN" && <Button href="/admin"><ShieldCheck className="h-[18px] w-[18px]" />Panel de administración</Button>}
                 {user ? <Button href="/panel" variant="outline">Ir a mi panel</Button> : <><Button href="/ingresar" variant="outline">Ingresar</Button><Button href="/registro">Crear cuenta</Button></>}
               </div>
             </motion.aside>

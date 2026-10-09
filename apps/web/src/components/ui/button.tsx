@@ -33,7 +33,7 @@ type AsLink = Common & { href: string; prefetch?: boolean; target?: string; rel?
 
 export const Button = forwardRef<HTMLButtonElement, AsButton | AsLink>(function Button(props, ref) {
   const { variant = "primary", size = "md", loading, className, children, type = "button", href, ...rest } = props as Common & { type?: "button" | "submit" | "reset"; href?: string } & Record<string, unknown>;
-  const cls = cn(base, variants[variant], sizes[size], className);
+  const cls = cn(base, variants[variant], sizes[size], loading && "disabled:opacity-100", className);
   if (typeof href === "string" && href) {
     const a = rest as unknown as Omit<AsLink, "href">;
     return <Link href={href} className={cls} {...a}>{children}</Link>;
