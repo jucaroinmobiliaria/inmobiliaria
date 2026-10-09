@@ -20,6 +20,13 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL es obligatoria"),
+  /** Proyecto Supabase (REST). No sustituye a DATABASE_URL: Prisma habla con Postgres. */
+  SUPABASE_URL: optStr,
+  SUPABASE_ANON_KEY: optStr,
+  /** Solo servidor. Nunca la expongas al navegador. */
+  SUPABASE_SERVICE_ROLE_KEY: optStr,
+  /** Secreto con el que Supabase firma sus JWT (anon y service role). No es el JWT_SECRET de las sesiones de Jucaro. */
+  SUPABASE_JWT_SECRET: optStr,
   DB_POOL_MAX: z.coerce.number().int().positive().default(5),
   JWT_SECRET: z.string().min(32, "JWT_SECRET debe tener al menos 32 caracteres"),
   WEB_ORIGIN: z.string().default("http://localhost:3000"),
