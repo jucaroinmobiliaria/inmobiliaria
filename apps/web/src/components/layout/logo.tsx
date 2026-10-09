@@ -5,17 +5,20 @@ import { BRAND_GOLD, BRAND_GREEN, MARK_C, MARK_J, MARK_PLATE_RX, MARK_STROKE, MA
 
 function Mark({ ink, gold, assemble }: { ink: string; gold: string; assemble?: boolean }) {
   return (
-    <>
+    <g className={assemble ? "mark-scene" : undefined}>
+      {assemble && (
+        <circle className="mark-halo" cx="20" cy="21" r="15.5" fill="none" stroke={gold} strokeWidth="1.15" opacity="0" />
+      )}
       <g className={assemble ? "mark-c" : undefined}>
-        <path d={MARK_C} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+        <path d={MARK_C} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" />
       </g>
       <g className={assemble ? "mark-j" : undefined}>
-        <path d={MARK_J} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+        <path d={MARK_J} fill="none" stroke={ink} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round" />
       </g>
       <g className={assemble ? "mark-window" : undefined}>
         <rect x={MARK_WINDOW.x} y={MARK_WINDOW.y} width={MARK_WINDOW.size} height={MARK_WINDOW.size} rx={MARK_WINDOW.rx} fill={gold} />
       </g>
-    </>
+    </g>
   );
 }
 
@@ -38,7 +41,7 @@ export function Logo({ light = false, animate = false, className }: { light?: bo
         invert={light}
         animate={animate}
         className={cn(
-          "h-10 w-10 transition-transform duration-500 ease-[cubic-bezier(0.34,1.4,0.64,1)] group-hover:-rotate-6 group-hover:scale-105",
+          "h-10 w-10 origin-center transition-transform duration-500 ease-[cubic-bezier(0.34,1.4,0.64,1)] group-hover:scale-105",
           !light && "text-brand-600",
         )}
       />
