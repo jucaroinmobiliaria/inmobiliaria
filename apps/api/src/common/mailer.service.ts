@@ -35,6 +35,11 @@ export class MailerService {
   async send(msg: MailMessage): Promise<boolean> {
     if (this.driver === "console") {
       this.logger.log(`[correo → ${msg.to}] ${msg.subject}\n${msg.text}`);
+      // En producción no hay bandeja de logs: sin Resend el correo no existe.
+      if (env.isProd) {
+        this.logger.error("Correo no enviado: configura RESEND_API_KEY y MAIL_FROM en el proyecto API de Vercel");
+        return false;
+      }
       return true;
     }
     try {
@@ -45,7 +50,8 @@ export class MailerService {
         signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) {
-        this.logger.warn(`Resend respondió ${res.status} al enviar "${msg.subject}"`);
+        const detail = await res.text().catch(() => "");
+        this.logger.warn(`Resend respondió ${res.status} al enviar "${msg.subject}": ${detail.slice(0, 400)}`);
         return false;
       }
       return true;

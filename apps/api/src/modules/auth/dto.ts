@@ -60,5 +60,15 @@ export const verifyEmailSchema = z.object({
 });
 export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
 
+export const verifySupabaseSchema = z
+  .object({
+    accessToken: z.string().min(20).max(4000).optional(),
+    code: z.string().min(8).max(2048).optional(),
+    tokenHash: z.string().min(8).max(2048).optional(),
+    type: z.enum(["signup", "email", "invite", "magiclink", "recovery", "email_change"]).optional(),
+  })
+  .refine((v) => Boolean(v.accessToken || v.code || v.tokenHash), { message: "El enlace no es válido" });
+export type VerifySupabaseDto = z.infer<typeof verifySupabaseSchema>;
+
 export const resendVerificationSchema = forgotSchema;
 export type ResendVerificationDto = ForgotDto;

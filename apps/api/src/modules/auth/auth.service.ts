@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException, BadRequestException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, Logger, ServiceUnavailableException, UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import bcrypt from "bcryptjs";
 import type { CookieOptions, Response } from "express";
@@ -7,6 +7,7 @@ import { AuditService } from "../../common/audit.service.js";
 import { env } from "../../common/config.js";
 import { MailerService, mailLayout } from "../../common/mailer.service.js";
 import { Prisma, PrismaService } from "../../common/prisma.service.js";
+import { SupabaseService } from "../../common/supabase.service.js";
 import type { Role } from "../../generated/prisma/client.js";
 import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import type { ChangePasswordDto, LoginDto, RegisterDto, ResetDto, UpdateMeDto } from "./dto.js";
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly mailer: MailerService,
+    private readonly supabase: SupabaseService,
   ) {}
 
   /* ---------- Cookies ---------- */
@@ -100,16 +102,17 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto): Promise<RegisterPendingDTO> {
-    const exists = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true } });
+    const email = dto.email.trim().toLowerCase();
+    const exists = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (exists) throw new ConflictException({ message: "Ya existe una cuenta con este correo", errors: { email: ["Este correo ya está registrado"] } });
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
     const role = dto.role ?? "USER";
     const token = randomBytes(32).toString("base64url");
     await this.prisma.$transaction(async (tx) => {
-      await tx.emailVerification.deleteMany({ where: { email: dto.email, usedAt: null } });
+      await tx.emailVerification.deleteMany({ where: { email, usedAt: null } });
       await tx.emailVerification.create({
         data: {
-          email: dto.email,
+          email,
           name: dto.name,
           passwordHash,
           phone: dto.phone ?? null,
@@ -119,14 +122,123 @@ export class AuthService {
         },
       });
     });
-    await this.sendVerifyMail(dto.email, dto.name, token);
-    const out: RegisterPendingDTO = { ok: true, needsVerification: true, email: dto.email, name: dto.name };
+    await this.dispatchVerificationEmail({ email, name: dto.name, password: dto.password, phone: dto.phone, role, token });
+    const out: RegisterPendingDTO = { ok: true, needsVerification: true, email, name: dto.name };
     if (!env.isProd) out.verifyToken = token;
     return out;
   }
 
   async verifyEmail(token: string, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
     const row = await this.prisma.emailVerification.findUnique({ where: { tokenHash: sha256(token) } });
+    return this.completePending(row, meta);
+  }
+
+  /** Confirma el correo con el token/código que Supabase pone en el enlace y abre sesión en Jucaro. */
+  async verifySupabase(
+    dto: { accessToken?: string; code?: string; tokenHash?: string; type?: "signup" | "email" | "invite" | "magiclink" | "recovery" | "email_change" },
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    if (!this.supabase.enabled) {
+      throw new ServiceUnavailableException("La confirmación por Supabase no está configurada");
+    }
+    let sb;
+    try {
+      if (dto.accessToken) sb = await this.supabase.userFromAccessToken(dto.accessToken);
+      else if (dto.code) sb = await this.supabase.userFromCode(dto.code);
+      else if (dto.tokenHash) sb = await this.supabase.userFromTokenHash(dto.tokenHash, dto.type ?? "signup");
+      else throw new Error("sin credencial");
+    } catch {
+      throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
+    }
+    if (!sb.email) {
+      throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
+    }
+    const existing = await this.prisma.user.findUnique({ where: { email: sb.email }, select: { id: true, status: true } });
+    if (existing) {
+      if (existing.status === "BLOCKED") throw new ForbiddenException("Tu cuenta está bloqueada. Contacta a soporte");
+      await this.prisma.emailVerification.updateMany({ where: { email: sb.email, usedAt: null }, data: { usedAt: new Date() } });
+      const tokens = await this.issue(existing.id, (await this.prisma.user.findUniqueOrThrow({ where: { id: existing.id }, select: { role: true } })).role, meta);
+      return { user: await this.sessionUser(existing.id), tokens };
+    }
+    const row = await this.prisma.emailVerification.findFirst({
+      where: { email: sb.email, usedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+    if (row && row.expiresAt >= new Date()) return this.completePending(row, meta);
+    // Sin fila pendiente: crea la cuenta con los datos guardados en Supabase user_metadata.
+    return this.createFromSupabase(sb, meta);
+  }
+
+  async resendVerification(emailRaw: string): Promise<void> {
+    const email = emailRaw.trim().toLowerCase();
+    const pending = await this.prisma.emailVerification.findFirst({
+      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!pending) return;
+    if (Date.now() - pending.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.emailVerification.update({
+      where: { id: pending.id },
+      data: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
+    });
+    if (this.supabase.enabled) {
+      try {
+        await this.supabase.resendSignup(email);
+        return;
+      } catch (e) {
+        this.logger.warn(`No se pudo reenviar con Supabase: ${(e as Error).message}`);
+        if (env.isProd) {
+          throw new ServiceUnavailableException("No pudimos reenviar el correo de confirmación. Inténtalo de nuevo en unos minutos.");
+        }
+      }
+    }
+    await this.sendVerifyMail(email, pending.name, token);
+  }
+
+  private async dispatchVerificationEmail(input: {
+    email: string;
+    name: string;
+    password: string;
+    phone?: string | null;
+    role: string;
+    token: string;
+  }): Promise<void> {
+    if (this.supabase.enabled) {
+      try {
+        await this.supabase.signUp({
+          email: input.email,
+          password: input.password,
+          name: input.name,
+          phone: input.phone,
+          role: input.role,
+        });
+        return;
+      } catch (e) {
+        this.logger.warn(`Supabase Auth no envió el correo: ${(e as Error).message}`);
+        if (env.isProd) {
+          throw new ServiceUnavailableException(
+            "No pudimos enviar el correo de confirmación. Revisa Supabase Auth (Confirm email + Redirect URLs) e inténtalo de nuevo.",
+          );
+        }
+      }
+    }
+    await this.sendVerifyMail(input.email, input.name, input.token);
+  }
+
+  private async completePending(
+    row: {
+      id: string;
+      email: string;
+      name: string;
+      phone: string | null;
+      passwordHash: string;
+      role: Role;
+      usedAt: Date | null;
+      expiresAt: Date;
+    } | null,
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
     if (!row || row.usedAt || row.expiresAt < new Date()) {
       throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
     }
@@ -139,16 +251,53 @@ export class AuthService {
     if (claimed.count !== 1) {
       throw new BadRequestException({ message: "El enlace no es válido o ya venció. Solicita uno nuevo", errors: { token: ["El enlace no es válido o ya venció"] } });
     }
+    return this.createLocalUser({
+      email: row.email,
+      name: row.name,
+      phone: row.phone,
+      passwordHash: row.passwordHash,
+      role: row.role,
+    }, meta);
+  }
+
+  private async createFromSupabase(
+    sb: { email: string; name: string; phone: string | null; role: string },
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
+    const role = (["USER", "OWNER", "AGENT"].includes(sb.role) ? sb.role : "USER") as Role;
+    // Contraseña real vive en Supabase; aquí un hash aleatorio por si el login local se usa como respaldo.
+    const passwordHash = await bcrypt.hash(randomBytes(32).toString("base64url"), BCRYPT_COST);
+    const pending = await this.prisma.emailVerification.findFirst({
+      where: { email: sb.email, usedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+    const hash = pending?.passwordHash ?? passwordHash;
+    if (pending) {
+      await this.prisma.emailVerification.update({ where: { id: pending.id }, data: { usedAt: new Date() } });
+    }
+    return this.createLocalUser({
+      email: sb.email,
+      name: pending?.name ?? sb.name,
+      phone: pending?.phone ?? sb.phone,
+      passwordHash: hash,
+      role: pending?.role ?? role,
+    }, meta);
+  }
+
+  private async createLocalUser(
+    data: { email: string; name: string; phone: string | null; passwordHash: string; role: Role },
+    meta: ReqMeta,
+  ): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: row.email,
-          name: row.name,
-          phone: row.phone,
-          passwordHash: row.passwordHash,
-          role: row.role,
+          email: data.email,
+          name: data.name,
+          phone: data.phone,
+          passwordHash: data.passwordHash,
+          role: data.role,
           profile: { create: {} },
-          ...(row.role === "AGENT" ? { agent: { create: {} } } : {}),
+          ...(data.role === "AGENT" ? { agent: { create: {} } } : {}),
         },
         select: { id: true, role: true },
       });
@@ -163,24 +312,9 @@ export class AuthService {
     }
   }
 
-  async resendVerification(email: string): Promise<void> {
-    const pending = await this.prisma.emailVerification.findFirst({
-      where: { email, usedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!pending) return;
-    if (Date.now() - pending.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
-    const token = randomBytes(32).toString("base64url");
-    await this.prisma.emailVerification.update({
-      where: { id: pending.id },
-      data: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
-    });
-    await this.sendVerifyMail(email, pending.name, token);
-  }
-
   private async sendVerifyMail(to: string, name: string, token: string): Promise<void> {
     const url = `${env.webUrl}/confirmar-correo?token=${token}`;
-    await this.mailer.send({
+    const sent = await this.mailer.send({
       to,
       subject: `Confirma tu correo en ${env.SITE_NAME}`,
       text: `Hola ${name},\n\nPara crear tu cuenta, abre este enlace (vence en 24 horas):\n${url}\n\nSi no pediste esta cuenta, ignora este mensaje. No se creará nada.`,
@@ -193,6 +327,11 @@ export class AuthService {
         { label: "Confirmar correo", url },
       ),
     });
+    if (!sent) {
+      throw new ServiceUnavailableException(
+        "No pudimos enviar el correo de confirmación. Revisa que el servicio de correo esté configurado e inténtalo de nuevo.",
+      );
+    }
   }
 
   private getDummyHash(): Promise<string> {
@@ -201,11 +340,32 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, meta: ReqMeta): Promise<{ user: SessionUser; tokens: IssuedTokens }> {
-    const u = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true, passwordHash: true, status: true, role: true } });
+    const email = dto.email.trim().toLowerCase();
+    // Preferir Supabase Auth cuando está configurado (misma contraseña del registro).
+    if (this.supabase.enabled) {
+      const sb = await this.supabase.signIn(email, dto.password);
+      if (sb) {
+        const existing = await this.prisma.user.findUnique({ where: { email: sb.email }, select: { id: true, status: true, role: true } });
+        if (existing) {
+          if (existing.status === "BLOCKED") {
+            await this.audit.log({ actorId: existing.id, action: "auth.login_blocked", entity: "User", entityId: existing.id });
+            throw new ForbiddenException("Tu cuenta está bloqueada. Contacta a soporte");
+          }
+          await this.prisma.user.update({ where: { id: existing.id }, data: { lastLoginAt: new Date() } });
+          await this.audit.log({ actorId: existing.id, action: "auth.login", entity: "User", entityId: existing.id, meta: { ip: meta.ip ?? null, via: "supabase" } });
+          const tokens = await this.issue(existing.id, existing.role, meta);
+          return { user: await this.sessionUser(existing.id), tokens };
+        }
+        // Confirmó en Supabase pero aún no tiene fila en Jucaro.
+        if (sb.emailConfirmed) return this.createFromSupabase(sb, meta);
+        throw new BadRequestException("Confirma tu correo antes de ingresar. Revisa la bandeja de entrada.");
+      }
+    }
+    const u = await this.prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true, role: true } });
     // Se compara siempre contra un hash para no revelar por tiempo si el correo existe.
     const ok = await bcrypt.compare(dto.password, u?.passwordHash ?? (await this.getDummyHash()));
     if (!u || !ok) {
-      await this.audit.log({ actorId: u?.id ?? null, action: "auth.login_failed", entity: "User", entityId: u?.id ?? null, meta: { email: dto.email, ip: meta.ip ?? null } });
+      await this.audit.log({ actorId: u?.id ?? null, action: "auth.login_failed", entity: "User", entityId: u?.id ?? null, meta: { email, ip: meta.ip ?? null } });
       throw new UnauthorizedException("Correo o contraseña incorrectos");
     }
     if (u.status === "BLOCKED") {

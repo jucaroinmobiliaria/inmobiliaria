@@ -48,7 +48,7 @@ export function Header() {
       <header className={cn("fixed inset-x-0 top-0 z-50 transition-all duration-500", onHero ? "bg-transparent" : "glass border-b border-line/80")}>
         <div className="container-x flex h-[68px] items-center justify-between gap-6">
           <div className="flex items-center gap-10">
-            <Logo light={onHero} animate />
+            <Logo light={onHero} animate={pathname === "/"} key={pathname === "/" ? "home-mark" : "mark"} />
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Principal">
               {NAV.map((n) => {
                 const active = pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/"));
@@ -81,12 +81,14 @@ export function Header() {
                     <motion.div role="menu" initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }}
                       className="absolute right-0 top-[calc(100%+10px)] w-64 overflow-hidden rounded-2xl border border-line bg-white p-2 text-ink shadow-[var(--shadow-pop)]">
                       <div className="px-3 pb-2 pt-1"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-ink-3">{user.email}</p></div>
+                      {user.role === "ADMIN" && (
+                        <MenuLink href="/admin" highlight icon={<ShieldCheck className="h-[18px] w-[18px]" />}>Consola de administración</MenuLink>
+                      )}
                       <MenuLink href="/panel" icon={<LayoutDashboard className="h-[18px] w-[18px]" />}>Mi panel</MenuLink>
                       <MenuLink href="/panel/publicaciones" icon={<Building2 className="h-[18px] w-[18px]" />}>Mis publicaciones</MenuLink>
                       <MenuLink href="/panel/mensajes" icon={<MessageCircle className="h-[18px] w-[18px]" />}>Mensajes</MenuLink>
                       <MenuLink href="/favoritos" icon={<Heart className="h-[18px] w-[18px]" />}>Favoritos</MenuLink>
                       <MenuLink href="/panel/cuenta" icon={<Settings className="h-[18px] w-[18px]" />}>Mi cuenta</MenuLink>
-                      {user.role === "ADMIN" && <MenuLink href="/admin" icon={<ShieldCheck className="h-[18px] w-[18px]" />}>Administración</MenuLink>}
                       <button role="menuitem" onClick={() => void logout()} className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-line px-3 py-2.5 text-sm font-medium text-ink-2 hover:bg-surface"><LogOut className="h-[18px] w-[18px]" />Cerrar sesión</button>
                     </motion.div>
                   )}
@@ -96,6 +98,12 @@ export function Header() {
               <Link href={`/ingresar?next=${encodeURIComponent(pathname)}`} className={cn("hidden rounded-full px-4 py-2 text-[15px] font-semibold sm:block", onHero ? "text-white hover:bg-white/15" : "hover:bg-surface")}>Ingresar</Link>
             )}
 
+            {user?.role === "ADMIN" && (
+              <Button href="/admin" size="sm" variant="sun" className="shrink-0">
+                <ShieldCheck className="h-4 w-4" />
+                Consola
+              </Button>
+            )}
             <Button href="/publicar" size="sm" variant={onHero ? "white" : "primary"} className="hidden sm:inline-flex"><Plus className="h-4 w-4" />Publicar gratis</Button>
             <button onClick={() => setDrawer(true)} aria-label="Abrir menú" className={cn("grid h-10 w-10 place-items-center rounded-full lg:hidden", onHero ? "text-white hover:bg-white/15" : "hover:bg-surface")}><Menu className="h-6 w-6" /></button>
           </div>
@@ -109,6 +117,12 @@ export function Header() {
             <motion.aside initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               className="absolute right-0 top-0 flex h-full w-[86%] max-w-sm flex-col bg-white p-6 shadow-[var(--shadow-pop)]">
               <div className="flex items-center justify-between"><Logo /><button onClick={() => setDrawer(false)} aria-label="Cerrar menú" className="grid h-10 w-10 place-items-center rounded-full hover:bg-surface"><X className="h-6 w-6" /></button></div>
+              {user?.role === "ADMIN" && (
+                <Button href="/admin" variant="sun" className="mt-6 w-full">
+                  <ShieldCheck className="h-5 w-5" />
+                  Consola de administración
+                </Button>
+              )}
               <nav className="mt-8 grid gap-1" aria-label="Móvil">
                 {NAV.map((n) => <Link key={n.href} href={n.href} className="rounded-2xl px-4 py-3.5 font-display text-3xl hover:bg-surface">{n.label}</Link>)}
                 <Link href="/favoritos" className="rounded-2xl px-4 py-3.5 font-display text-3xl hover:bg-surface">Favoritos</Link>
@@ -124,6 +138,18 @@ export function Header() {
   );
 }
 
-function MenuLink({ href, icon, children }: { href: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return <Link role="menuitem" href={href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-surface"><span className="text-ink-3">{icon}</span>{children}</Link>;
+function MenuLink({ href, icon, children, highlight }: { href: string; icon: React.ReactNode; children: React.ReactNode; highlight?: boolean }) {
+  return (
+    <Link
+      role="menuitem"
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+        highlight ? "bg-sun-soft font-semibold text-sun-ink hover:brightness-95" : "hover:bg-surface",
+      )}
+    >
+      <span className={highlight ? "text-sun-ink" : "text-ink-3"}>{icon}</span>
+      {children}
+    </Link>
+  );
 }

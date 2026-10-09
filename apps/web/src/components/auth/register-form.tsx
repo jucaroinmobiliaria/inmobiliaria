@@ -80,7 +80,7 @@ export function RegisterForm({ next: _next, initialRole, loginHref }: { next: st
       <div className="rounded-[24px] bg-brand-50 p-6" role="status">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-600 text-white"><Mail className="h-6 w-6" /></span>
         <h2 className="mt-4 font-display text-[1.7rem] leading-tight">Revisa tu correo</h2>
-        <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">Te enviamos un enlace a <strong className="font-semibold text-ink">{pendingEmail}</strong> para confirmar y crear tu cuenta. Hasta que lo abras, la cuenta no existirá. Puede tardar un par de minutos; mira también en spam.</p>
+        <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">Te enviamos un enlace a <strong className="font-semibold text-ink">{pendingEmail}</strong> para confirmar y crear tu cuenta. Ábrelo con el botón del correo (no copies a medias la URL). Hasta que lo abras, la cuenta no existirá. Puede tardar un par de minutos; mira también en spam.</p>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <Button loading={busy} onClick={() => void resend()}>Reenviar correo</Button>
           <Button variant="outline" onClick={() => setPendingEmail(null)}>Usar otro correo</Button>

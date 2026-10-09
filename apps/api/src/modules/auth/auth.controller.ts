@@ -5,8 +5,8 @@ import { ZodPipe } from "../../common/zod.js";
 import type { RegisterPendingDTO, SessionUser } from "../../contract.js";
 import { AuthService, type ReqMeta } from "./auth.service.js";
 import {
-  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type ResendVerificationDto, type UpdateMeDto, type VerifyEmailDto,
-  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resendVerificationSchema, resetSchema, updateMeSchema, verifyEmailSchema,
+  type ChangePasswordDto, type ForgotDto, type LoginDto, type RegisterDto, type ResetDto, type ResendVerificationDto, type UpdateMeDto, type VerifyEmailDto, type VerifySupabaseDto,
+  changePasswordSchema, forgotSchema, loginSchema, registerSchema, resendVerificationSchema, resetSchema, updateMeSchema, verifyEmailSchema, verifySupabaseSchema,
 } from "./dto.js";
 
 const metaOf = (req: Request): ReqMeta => ({ ip: req.ip, userAgent: req.headers["user-agent"] });
@@ -23,6 +23,13 @@ export class AuthController {
   @Public() @AuthLimit() @Post("verify-email") @HttpCode(200)
   async verifyEmail(@Body(new ZodPipe(verifyEmailSchema)) dto: VerifyEmailDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ user: SessionUser }> {
     const { user, tokens } = await this.auth.verifyEmail(dto.token, metaOf(req));
+    this.auth.setCookies(res, tokens);
+    return { user };
+  }
+
+  @Public() @AuthLimit() @Post("verify-supabase") @HttpCode(200)
+  async verifySupabase(@Body(new ZodPipe(verifySupabaseSchema)) dto: VerifySupabaseDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ user: SessionUser }> {
+    const { user, tokens } = await this.auth.verifySupabase(dto, metaOf(req));
     this.auth.setCookies(res, tokens);
     return { user };
   }
