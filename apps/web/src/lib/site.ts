@@ -5,7 +5,7 @@ export const SITE = {
   description:
     "Jucaro publica cada aviso solo después de que un administrador lo aprueba. Encuentra apartamentos, casas, fincas y locales para comprar o arrendar, con fotos, mapa y contacto directo.",
   locale: "es_CO",
-  email: "hola@jucaro.co",
+  email: "jucaroinmobiliaria@gmail.com",
   whatsapp: "573000000000",
 } as const;
 

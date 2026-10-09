@@ -163,7 +163,20 @@ export class PublicationsReadService {
     const cat = await this.catalog.get();
     const type = q.type ? cat.types.find((t) => t.slug === q.type) : undefined;
     if (q.type && !type) throw new NotFoundException("Tipo de inmueble no encontrado");
-    const city = q.city ? cat.cities.find((c) => c.slug === q.city) : undefined;
+    let city = q.city ? cat.cities.find((c) => c.slug === q.city) : undefined;
+    if (q.city && !city) {
+      const row = await this.prisma.city.findUnique({
+        where: { slug: q.city },
+        include: { neighborhoods: { orderBy: { name: "asc" } } },
+      });
+      if (row) {
+        city = {
+          id: row.id, slug: row.slug, name: row.name, department: row.department,
+          lat: row.lat, lng: row.lng, coverUrl: row.coverUrl, count: 0,
+          neighborhoods: row.neighborhoods.map((n) => ({ id: n.id, slug: n.slug, name: n.name, lat: n.lat, lng: n.lng })),
+        };
+      }
+    }
     if (q.city && !city) throw new NotFoundException("Ciudad no encontrada");
     const hood = q.neighborhood && city ? city.neighborhoods.find((n) => n.slug === q.neighborhood) : undefined;
     if (q.neighborhood && !hood) throw new NotFoundException("Barrio no encontrado");

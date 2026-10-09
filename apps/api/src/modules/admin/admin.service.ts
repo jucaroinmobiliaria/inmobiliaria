@@ -177,6 +177,19 @@ export class AdminService {
     return this.userRow(fresh);
   }
 
+  async deleteUser(id: string, admin: AuthUser): Promise<{ ok: true }> {
+    if (id === admin.id) throw new ForbiddenException("No puedes eliminar tu propia cuenta");
+    const u = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: true, email: true, name: true } });
+    if (!u) throw new NotFoundException("Usuario no encontrado");
+    if (u.role === "ADMIN") {
+      const others = await this.prisma.user.count({ where: { role: "ADMIN", id: { not: id } } });
+      if (others === 0) throw new ConflictException("No puedes eliminar al último administrador");
+    }
+    await this.prisma.user.delete({ where: { id } });
+    await this.audit.log({ actorId: admin.id, action: "user.delete", entity: "User", entityId: id, meta: { email: u.email, name: u.name, role: u.role } });
+    return { ok: true };
+  }
+
   /* ---------- Reportes ---------- */
   private reportRow(r: Prisma.ReportGetPayload<{ include: { reporter: { select: { id: true; name: true } }; publication: { include: { property: { include: { type: true; location: { include: { city: true; neighborhood: true } } } } } } } }>): AdminReportRow {
     const pub = r.publication;

@@ -50,7 +50,7 @@ export class CatalogService {
     const [types, amenities, cities, counts] = await Promise.all([
       this.prisma.propertyType.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
       this.prisma.amenity.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-      this.prisma.city.findMany({ where: { active: true }, include: { neighborhoods: { orderBy: { name: "asc" } } }, orderBy: { name: "asc" } }),
+      this.prisma.city.findMany({ include: { neighborhoods: { orderBy: { name: "asc" } } }, orderBy: { name: "asc" } }),
       this.cityCounts(),
     ]);
     return {
@@ -88,12 +88,19 @@ export class CatalogService {
 
     const needle = fold(q);
     if (needle.length >= 1 && !/^\d+$/.test(needle)) {
-      const cat = await this.get();
       const rank = (name: string) => {
         const f = fold(name);
         return f.startsWith(needle) ? 0 : f.split(/\s+/).some((w) => w.startsWith(needle)) ? 1 : f.includes(needle) ? 2 : 9;
       };
-      const cities = cat.cities.map((c) => ({ c, r: rank(c.name) })).filter((x) => x.r < 9).sort((a, b) => a.r - b.r || b.c.count - a.c.count).slice(0, 3);
+      const [cat, dbCities] = await Promise.all([
+        this.get(),
+        this.prisma.city.findMany({ select: { slug: true, name: true, department: true } }),
+      ]);
+      const cities = dbCities
+        .map((c) => ({ c, r: Math.min(rank(c.name), rank(`${c.name} ${c.department}`)) }))
+        .filter((x) => x.r < 9)
+        .sort((a, b) => a.r - b.r || a.c.name.localeCompare(b.c.name, "es"))
+        .slice(0, 8);
       for (const { c } of cities) out.push({ kind: "city", label: c.name, sublabel: c.department, city: c.slug });
       const hoods = cat.cities
         .flatMap((c) => c.neighborhoods.map((n) => ({ n, c, r: rank(n.name) })))
@@ -104,6 +111,6 @@ export class CatalogService {
       const types = cat.types.map((t) => ({ t, r: Math.min(rank(t.name), rank(t.pluralName)) })).filter((x) => x.r < 9).sort((a, b) => a.r - b.r).slice(0, 3);
       for (const { t } of types) out.push({ kind: "type", label: t.pluralName, sublabel: "Tipo de inmueble", type: t.slug });
     }
-    return out.slice(0, 10);
+    return out.slice(0, 16);
   }
 }

@@ -51,6 +51,11 @@ export class AdminController {
     return this.admin.patchUser(id, u, dto);
   }
 
+  @Delete("users/:id")
+  deleteUser(@Me() u: AuthUser, @Param("id", idParam) id: string): Promise<{ ok: true }> {
+    return this.admin.deleteUser(id, u);
+  }
+
   @Get("reports")
   reports(@Query(new ZodPipe(adminReportsQuery)) q: z.infer<typeof adminReportsQuery>): Promise<AdminReportRow[]> {
     return this.admin.reports(q.status);

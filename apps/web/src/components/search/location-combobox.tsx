@@ -69,7 +69,7 @@ export function LocationCombobox({ value, onChange, onPickType, popular, variant
     if (typing && q.length >= 2) {
       const list = remote ?? [];
       const order = ["city", "neighborhood", "type", "code"] as const;
-      return order.flatMap((k) => list.filter((i) => i.kind === k).slice(0, 6).map((item, i) => ({ key: `${k}-${i}-${item.label}`, item, section: KIND_SECTION[k] })));
+      return order.flatMap((k) => list.filter((i) => i.kind === k).slice(0, k === "city" ? 8 : 6).map((item, i) => ({ key: `${k}-${i}-${item.label}`, item, section: KIND_SECTION[k] })));
     }
     const out: Row[] = recent.items.map((item, i) => ({ key: `r-${i}`, item, section: "Búsquedas recientes", recent: true }));
     const pop = (popular && popular.length ? popular : localPopular(catalog)).filter((p) => !recent.items.some((r) => same(r, p))).slice(0, 6);

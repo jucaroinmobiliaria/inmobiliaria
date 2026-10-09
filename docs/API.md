@@ -96,6 +96,7 @@ Driver de almacenamiento: `STORAGE_DRIVER=local|s3`. `s3` sirve para AWS S3, Clo
 | PATCH | /admin/publications/:id/feature | `{ featured, days? }` |
 | GET | /admin/users?q=&role=&page= | → `Paginated<AdminUserRow>` |
 | PATCH | /admin/users/:id | `{ role?, status?, verified? }` (no puede degradarse a sí mismo) |
+| DELETE | /admin/users/:id | `{ ok: true }` (no puede eliminarse a sí mismo ni al último ADMIN; borra avisos y sesión) |
 | GET | /admin/reports?status= | → `AdminReportRow[]` · PATCH /admin/reports/:id `{ status }` |
 | GET | /admin/audit?page= | → `Paginated<AuditRow>` |
 | POST/PATCH/DELETE | /admin/catalog/:kind(/:id) | kind = types\|amenities\|cities\|neighborhoods; cuerpo = campos del modelo (slug autogenerado) |

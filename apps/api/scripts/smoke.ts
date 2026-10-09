@@ -1457,6 +1457,19 @@ async function main(): Promise<void> {
     check("desbloquear", unblk.status === 200);
     check("tras desbloquear puede entrar", (await new Client("v3").login(email, DEMO)).status === 200);
 
+    const doomed = new Client("doomed");
+    const delEmail = `del.${RUN}@example.test`;
+    await doomed.post("/auth/register", { name: "Usuario Eliminable", email: delEmail, password: DEMO });
+    const drow = (await a.get(`/admin/users?q=${encodeURIComponent(delEmail)}`)).data.items[0];
+    const selfDel = await a.del(`/admin/users/${meAdmin.id}`);
+    check("el admin no puede eliminarse a sí mismo -> 400/403/409", [400, 403, 409].includes(selfDel.status), selfDel.status);
+    const gone = await a.del(`/admin/users/${drow.id}`);
+    check("DELETE /admin/users/:id", gone.status === 200 && gone.data?.ok === true, gone.data);
+    const afterDel = await a.get(`/admin/users?q=${encodeURIComponent(delEmail)}`);
+    check("el usuario eliminado ya no aparece", Array.isArray(afterDel.data?.items) && !afterDel.data.items.some((u: J) => u.email === delEmail), afterDel.data);
+    const ghostLogin = await new Client("ghost").login(delEmail, DEMO);
+    check("un usuario eliminado no puede iniciar sesión (401/403)", [401, 403].includes(ghostLogin.status), ghostLogin.status);
+
     const featOn = await a.patch(`/admin/publications/${W.pubId}/feature`, { featured: true, days: 7 });
     check("PATCH /admin/publications/:id/feature { featured: true, days }", featOn.status === 200, featOn.data);
     const featList = await anon.get("/publications?featured=true&pageSize=60");

@@ -15,6 +15,9 @@ export function Footer() {
         <div className="max-w-xs">
           <Logo />
           <p className="mt-4 text-[15px] leading-relaxed text-ink-2">{SITE.tagline}. Publica con fotos, mapa y contacto directo, sin intermediarios innecesarios.</p>
+          <p className="mt-3 text-[15px] text-ink-2">
+            <a href={`mailto:${SITE.email}`} className="font-medium text-ink transition-colors hover:text-brand-700">{SITE.email}</a>
+          </p>
         </div>
         {cols.map((c) => (
           <nav key={c.title} aria-label={c.title}>
