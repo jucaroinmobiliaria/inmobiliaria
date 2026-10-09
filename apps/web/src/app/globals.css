@@ -245,44 +245,84 @@
   100% { transform: scale(0.85) translateY(-22px); opacity: 0; }
 }
 
-/* Isotipo: la J sube como jamba, la C baja como techo; se arman en casa. Una vez. */
+/* Isotipo: J y C tipográficas entran, se leen juntas y se traban en la casa. Una vez. */
+.mark-assemble .mark-glyph,
+.mark-assemble .mark-j,
+.mark-assemble .mark-c,
+.mark-assemble .mark-window,
+.mark-assemble .mark-house {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.mark-assemble .mark-j,
+.mark-assemble .mark-c,
+.mark-assemble .mark-window {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark-assemble .mark-letters { display: none; }
+  .mark-assemble .mark-j,
+  .mark-assemble .mark-c,
+  .mark-assemble .mark-window { opacity: 1; }
+}
 @media (prefers-reduced-motion: no-preference) {
-  .mark-assemble .mark-j {
-    animation: mark-j-in 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
+  .mark-assemble .mark-glyph-j {
+    animation: mark-glyph-j 1.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .mark-assemble .mark-glyph-c {
+    animation: mark-glyph-c 1.55s 0.06s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .mark-assemble .mark-c {
-    animation: mark-c-in 0.76s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: mark-c-lock 0.7s 0.88s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .mark-assemble .mark-j path,
-  .mark-assemble .mark-c path {
-    stroke-dasharray: 1;
-    animation: mark-draw 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .mark-assemble .mark-c path {
-    animation-delay: 0.12s;
-    animation-duration: 0.76s;
+  .mark-assemble .mark-j {
+    animation: mark-j-lock 0.7s 0.94s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .mark-assemble .mark-window {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: mark-window-in 0.36s 0.64s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+    animation: mark-window-in 0.42s 1.42s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  }
+  .mark-assemble .mark-house {
+    animation: mark-house-settle 0.55s 1.55s cubic-bezier(0.34, 1.2, 0.64, 1) both;
   }
 }
-@keyframes mark-j-in {
-  from { transform: translate(-4px, 7px); opacity: 0; }
-  30% { opacity: 1; }
-  to { transform: none; opacity: 1; }
+/* 1) Entran  2) Se leen juntas  3) Se acercan y ceden a la casa */
+@keyframes mark-glyph-j {
+  0%   { transform: translate(-18px, 1px); opacity: 0; }
+  12%  { opacity: 1; }
+  28%  { transform: translate(0, 0); opacity: 1; }
+  48%  { transform: translate(1.2px, 0); opacity: 1; }
+  62%  { transform: translate(3.5px, 0) scale(1.05); opacity: 1; }
+  82%  { transform: translate(6px, 1px) scale(0.55) rotate(-8deg); opacity: 0.35; }
+  100% { transform: translate(8px, 3px) scale(0.2) rotate(-14deg); opacity: 0; }
 }
-@keyframes mark-c-in {
-  from { transform: translate(5px, -8px); opacity: 0; }
-  26% { opacity: 1; }
-  to { transform: none; opacity: 1; }
+@keyframes mark-glyph-c {
+  0%   { transform: translate(18px, -1px); opacity: 0; }
+  12%  { opacity: 1; }
+  28%  { transform: translate(0, 0); opacity: 1; }
+  48%  { transform: translate(-1.2px, 0); opacity: 1; }
+  62%  { transform: translate(-3.5px, 0) scale(1.05); opacity: 1; }
+  82%  { transform: translate(-6px, -1px) scale(0.55) rotate(8deg); opacity: 0.35; }
+  100% { transform: translate(-8px, -3px) scale(0.2) rotate(14deg); opacity: 0; }
 }
-@keyframes mark-draw {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
+@keyframes mark-c-lock {
+  0%   { transform: translate(9px, -11px) rotate(12deg) scale(0.86); opacity: 0; }
+  55%  { opacity: 1; }
+  78%  { transform: translate(-0.6px, 0.5px) rotate(-1.5deg) scale(1.03); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes mark-j-lock {
+  0%   { transform: translate(-9px, 10px) rotate(-10deg) scale(0.86); opacity: 0; }
+  55%  { opacity: 1; }
+  78%  { transform: translate(0.6px, -0.5px) rotate(1.5deg) scale(1.03); opacity: 1; }
+  100% { transform: none; opacity: 1; }
 }
 @keyframes mark-window-in {
-  from { transform: scale(0.12); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(0.08); opacity: 0; }
+  70%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes mark-house-settle {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.045); }
+  100% { transform: scale(1); }
 }

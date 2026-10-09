@@ -8,7 +8,7 @@ import type { InquiryRow, SessionUser } from "@/lib/types";
 import { Avatar } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import {
-  Bookmark, Calendar, LayoutDashboard, MessageCircle, Plus, Settings, ShieldCheck, ArrowUpRight,
+  Bookmark, Calendar, LayoutDashboard, MessageCircle, Plus, Settings, ShieldCheck,
   type LucideIcon,
 } from "@/components/ui/icon";
 import { Building2 } from "@/components/ui/icon";
@@ -58,6 +58,12 @@ export function PanelShell({ user, children }: { user: SessionUser; children: Re
               </div>
               <p className="relative mt-4 text-[12.5px] leading-relaxed text-white/75">Tus avisos salen al público cuando un administrador los aprueba.</p>
             </div>
+            {user.role === "ADMIN" && (
+              <Button href="/admin" variant="sun" className="h-auto min-h-12 w-full whitespace-normal py-3 text-[14px]">
+                <ShieldCheck className="h-5 w-5 shrink-0" />
+                Consola de administración
+              </Button>
+            )}
             <nav className="grid grid-cols-[minmax(0,1fr)] gap-1" aria-label="Panel">
               {NAV.map((n) => {
                 const active = isActive(n);
@@ -73,17 +79,18 @@ export function PanelShell({ user, children }: { user: SessionUser; children: Re
               })}
             </nav>
             <Button href="/publicar" className="w-full"><Plus className="h-[18px] w-[18px]" />Publicar inmueble</Button>
-            {user.role === "ADMIN" && (
-              <Link href="/admin" className="flex h-11 items-center gap-3 rounded-full border border-line px-4 text-sm font-semibold text-ink-2 transition hover:border-ink hover:text-ink">
-                <ShieldCheck className="h-[18px] w-[18px] text-brand-600" />Consola de administración<ArrowUpRight className="ml-auto h-4 w-4" />
-              </Link>
-            )}
           </div>
         </aside>
 
         <div className="min-w-0">
           {/* Título y pestañas (móvil) */}
           <div className="sticky top-[68px] z-30 -mx-5 mb-5 border-b border-line bg-white/92 px-5 pb-3 pt-3 backdrop-blur md:-mx-8 md:px-8 lg:hidden">
+            {user.role === "ADMIN" && (
+              <Button href="/admin" variant="sun" className="mb-3 w-full">
+                <ShieldCheck className="h-5 w-5" />
+                Consola de administración
+              </Button>
+            )}
             <div ref={pills} className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1" role="navigation" aria-label="Secciones del panel">
               {NAV.map((n) => {
                 const active = isActive(n);

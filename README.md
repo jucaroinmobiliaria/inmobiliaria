@@ -17,7 +17,7 @@ apps/
   web/   Next.js (UI, SEO, proxy /backend → API)
   api/   NestJS + Prisma (REST), seed y prueba de humo
 database/
-  schema.sql        Esquema completo (25 tablas) — para Supabase/Neon/psql
+  schema.sql        Esquema completo (26 tablas) — para Supabase/Neon/psql
   catalog.sql       Solo catálogos (tipos, comodidades, ciudades, barrios) — para producción
   seed.sql          Datos de ejemplo (64 inmuebles, 10 usuarios, catálogos) — para demo
   create-admin.sql  Crea TU administrador en producción
