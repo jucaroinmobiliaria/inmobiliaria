@@ -72,5 +72,7 @@ export const env = {
   webOrigins: origins,
   webUrl: (e.WEB_PUBLIC_URL ?? origins[0] ?? "http://localhost:3000").replace(/\/$/, ""),
   rateLimitFactor: e.RATE_LIMIT_FACTOR ?? (e.NODE_ENV === "production" ? 1 : 25),
+  /** Supabase/R2 exigen path-style; el host `bucket.proyecto.storage.supabase.co` no existe. */
+  S3_FORCE_PATH_STYLE: e.S3_FORCE_PATH_STYLE || Boolean(e.S3_ENDPOINT),
 };
 export type Env = typeof env;
