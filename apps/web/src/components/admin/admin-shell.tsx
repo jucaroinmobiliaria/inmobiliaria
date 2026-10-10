@@ -11,7 +11,7 @@ import type { AdminOverview, SessionUser } from "@/lib/types";
 import { Avatar } from "@/components/ui/misc";
 import { LogoMark } from "@/components/layout/logo";
 import {
-  ArrowLeft, ArrowUpRight, Building2, ChartColumn, Database, Flag, LayoutDashboard, ListChecks, LogOut, Menu, Search, ScrollText, Users, X, House, User as UserIcon,
+  ArrowLeft, ArrowUpRight, Building2, ChartColumn, ChevronLeft, ChevronRight, Database, Flag, LayoutDashboard, ListChecks, LogOut, Menu, Search, ScrollText, Users, X, House, User as UserIcon,
   type LucideIcon,
 } from "@/components/ui/icon";
 import { ActionMenu, useData } from "@/components/panel/common";
@@ -38,25 +38,28 @@ export function useAdminCounts() {
   return { pending: data?.pendingReview ?? 0, reports: data?.openReports ?? 0 };
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, compact = false }: { onNavigate?: () => void; compact?: boolean }) {
   const pathname = usePathname();
   const { pending, reports } = useAdminCounts();
   return (
-    <nav aria-label="Administración" className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      {GROUPS.map((g) => (
-        <div key={g.title}>
-          <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">{g.title}</p>
+    <nav aria-label="Administración" className={cn("grid grid-cols-[minmax(0,1fr)]", compact ? "gap-2" : "gap-5")}>
+      {GROUPS.map((g, gi) => (
+        <div key={g.title} className={cn(compact && gi > 0 && "border-t border-line pt-2")}>
+          <p className={cn("mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3", compact && "sr-only")}>{g.title}</p>
           <ul className="grid gap-0.5">
             {g.items.map((n) => {
               const active = n.exact ? pathname === n.href : pathname === n.href || pathname.startsWith(`${n.href}/`);
               const count = n.badge === "pending" ? pending : n.badge === "reports" ? reports : 0;
               return (
                 <li key={n.href}>
-                  <Link href={n.href} onClick={onNavigate} aria-current={active ? "page" : undefined}
-                    className={cn("flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors", active ? "bg-brand-50 text-brand-800" : "text-ink-2 hover:bg-surface hover:text-ink")}>
-                    <n.icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand-600" : "text-ink-3")} strokeWidth={active ? 2.1 : 1.8} />
-                    <span className="flex-1">{n.label}</span>
-                    {count > 0 && <span aria-label={`${count} pendientes`} className={cn("grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold tabular", n.badge === "pending" ? "bg-brand-700 text-white" : "bg-heart text-white")}>{count}</span>}
+                  <Link href={n.href} onClick={onNavigate} aria-current={active ? "page" : undefined} title={compact ? n.label : undefined}
+                    className={cn("flex h-10 items-center rounded-xl text-sm font-semibold transition-colors", compact ? "justify-center px-0" : "gap-3 px-3", active ? "bg-brand-50 text-brand-800" : "text-ink-2 hover:bg-surface hover:text-ink")}>
+                    <span className="relative shrink-0">
+                      <n.icon className={cn("h-[18px] w-[18px]", active ? "text-brand-600" : "text-ink-3")} strokeWidth={active ? 2.1 : 1.8} />
+                      {compact && count > 0 && <span className={cn("absolute -right-1.5 -top-1.5 h-2 w-2 rounded-full", n.badge === "pending" ? "bg-brand-700" : "bg-heart")} />}
+                    </span>
+                    <span className={cn("min-w-0 flex-1 truncate", compact && "sr-only")}>{n.label}</span>
+                    {!compact && count > 0 && <span aria-label={`${count} pendientes`} className={cn("grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold tabular", n.badge === "pending" ? "bg-brand-700 text-white" : "bg-heart text-white")}>{count}</span>}
                   </Link>
                 </li>
               );
@@ -68,37 +71,41 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function BackActions({ onBack }: { onBack: () => void }) {
+function BackActions({ onBack, compact = false }: { onBack: () => void; compact?: boolean }) {
+  const item = compact ? "grid h-10 w-10 place-items-center rounded-xl" : "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold";
   return (
-    <div className="grid gap-1.5">
-      <button type="button" onClick={onBack} className="flex h-10 items-center gap-3 rounded-xl bg-ink px-3 text-sm font-semibold text-white transition hover:bg-brand-900">
-        <ArrowLeft className="h-[18px] w-[18px]" />Atrás
+    <div className={cn("grid gap-1.5", compact && "justify-items-center")}>
+      <button type="button" onClick={onBack} title={compact ? "Atrás" : undefined} className={cn(item, "bg-ink text-white transition hover:bg-brand-900")}>
+        <ArrowLeft className="h-[18px] w-[18px]" /><span className={cn(!compact && "font-semibold", compact && "sr-only")}>Atrás</span>
       </button>
-      <Link href="/panel" className="flex h-10 items-center gap-3 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold transition hover:border-ink">
-        <LayoutDashboard className="h-[18px] w-[18px] text-ink-3" />Mi panel
+      <Link href="/panel" title={compact ? "Mi panel" : undefined} className={cn(item, "border border-line-strong bg-white transition hover:border-ink")}>
+        <LayoutDashboard className="h-[18px] w-[18px] text-ink-3" /><span className={cn(compact && "sr-only")}>Mi panel</span>
       </Link>
-      <Link href="/" className="flex h-10 items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-800 transition hover:border-brand-600">
-        <House className="h-[18px] w-[18px]" />Volver al sitio<ArrowUpRight className="ml-auto h-4 w-4" />
+      <Link href="/" title={compact ? "Volver al sitio" : undefined} className={cn(item, "border border-brand-200 bg-brand-50 text-brand-800 transition hover:border-brand-600")}>
+        <House className="h-[18px] w-[18px]" /><span className={cn("min-w-0 flex-1 truncate", compact && "sr-only")}>Volver al sitio</span>{!compact && <ArrowUpRight className="h-4 w-4 shrink-0" />}
       </Link>
     </div>
   );
 }
 
-function Brand() {
+function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/admin" className="flex items-center gap-2.5" aria-label={`${SITE.name} — administración`}>
-      <LogoMark className="h-8 w-8 text-brand-700" />
-      <span className="font-display text-[1.6rem] leading-none tracking-tight">{SITE.name}</span>
-      <span className="rounded-md bg-brand-900 px-1.5 py-1 text-[10px] font-bold uppercase leading-none tracking-wider text-white">Admin</span>
+    <Link href="/admin" aria-label={`${SITE.name} — administración`} className={cn("flex min-w-0 items-center", compact ? "justify-center" : "gap-2.5")}>
+      <LogoMark className="h-8 w-8 shrink-0" />
+      <span className={cn("truncate font-display text-[1.45rem] leading-none tracking-tight", compact && "sr-only")}>{SITE.name}</span>
+      <span className={cn("shrink-0 rounded-md bg-brand-900 px-1.5 py-1 text-[10px] font-bold uppercase leading-none tracking-wider text-white", compact && "sr-only")}>Admin</span>
     </Link>
   );
 }
+
+const NAV_KEY = "jucaro-admin-nav";
 
 export function AdminShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useSession();
   const [drawer, setDrawer] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
   const [hi, setHi] = useState(0);
@@ -106,6 +113,12 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
   const searchWrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => setDrawer(false), [pathname]);
+  useEffect(() => { setCollapsed(localStorage.getItem(NAV_KEY) === "compact"); }, []);
+  const toggleNav = () => setCollapsed((v) => {
+    const next = !v;
+    localStorage.setItem(NAV_KEY, next ? "compact" : "full");
+    return next;
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -145,15 +158,21 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
     <>
       {/* El pie de página global no aplica al admin: este shell tiene su propio chrome. */}
       <style>{`body > footer { display: none; }`}</style>
-      <div className="min-h-dvh bg-white lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-dvh flex-col gap-7 overflow-y-auto border-r border-line bg-white px-4 py-5 lg:flex" aria-label="Barra lateral">
-          <div className="px-2"><Brand /></div>
-          <NavLinks />
+      <div className={cn("min-h-dvh bg-white lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-[cubic-bezier(0.16,1,0.3,1)]", collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[232px_minmax(0,1fr)]")}>
+        <aside id="admin-nav" className={cn("sticky top-0 hidden h-dvh w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line bg-white lg:flex", collapsed ? "gap-4 px-2 py-4" : "gap-5 px-3 py-4")} aria-label="Barra lateral">
+          <div className={cn("grid gap-2", collapsed ? "justify-items-center" : "px-1")}>
+            <Brand compact={collapsed} />
+            <button type="button" onClick={toggleNav} aria-expanded={!collapsed} aria-controls="admin-nav" className={cn("flex h-10 items-center rounded-xl border border-line-strong text-sm font-semibold text-ink-2 transition hover:border-ink hover:bg-surface", collapsed ? "w-10 justify-center" : "gap-2 px-3")}>
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              <span className={cn(collapsed && "sr-only")}>{collapsed ? "Ampliar menú" : "Reducir menú"}</span>
+            </button>
+          </div>
+          <NavLinks compact={collapsed} />
           <div className="mt-auto grid gap-2">
-            <BackActions onBack={goBack} />
-            <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5">
-              <Avatar name={user.name} src={user.avatarUrl} size={34} />
-              <div className="min-w-0"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-ink-3">Administrador</p></div>
+            <BackActions onBack={goBack} compact={collapsed} />
+            <div className={cn("flex items-center rounded-xl bg-surface", collapsed ? "justify-center p-1.5" : "gap-3 px-3 py-2.5")} title={collapsed ? user.name : undefined}>
+              <Avatar name={user.name} src={user.avatarUrl} size={collapsed ? 32 : 34} />
+              <div className={cn("min-w-0", collapsed && "sr-only")}><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-ink-3">Administrador</p></div>
             </div>
           </div>
         </aside>
