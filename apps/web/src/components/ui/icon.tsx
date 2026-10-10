@@ -40,10 +40,10 @@ export type { LucideIcon };
 
 /* --- Iconos añadidos por el equipo de panel/admin (aditivo) --- */
 import {
-  Send, ArrowLeft, Bookmark, ExternalLink, Ellipsis, Lightbulb, ChartColumn, ShieldAlert, ListChecks, ArrowUp, ArrowDown, 
+  Send, ArrowLeft, ArrowLeftRight, Bookmark, ExternalLink, Ellipsis, Lightbulb, ChartColumn, ShieldAlert, ListChecks, ArrowUp, ArrowDown,
   ArrowDownRight, CalendarDays, Keyboard, Undo2, Rocket, ScrollText, Database, ChevronUp, BellRing, Minus, Trophy, UserPlus,
 } from "lucide-react";
 export {
-  Send, ArrowLeft, Bookmark, ExternalLink, Ellipsis, Lightbulb, ChartColumn, ShieldAlert, ListChecks, ArrowUp, ArrowDown, ArrowDownRight, CalendarDays,
+  Send, ArrowLeft, ArrowLeftRight, Bookmark, ExternalLink, Ellipsis, Lightbulb, ChartColumn, ShieldAlert, ListChecks, ArrowUp, ArrowDown, ArrowDownRight, CalendarDays,
   Keyboard, Undo2, Rocket, ScrollText, Database, ChevronUp, BellRing, Minus, Trophy, Users, UserPlus, Lock,
 };

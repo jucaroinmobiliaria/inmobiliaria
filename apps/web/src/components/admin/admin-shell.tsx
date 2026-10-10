@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import { SITE } from "@/lib/site";
@@ -11,7 +11,7 @@ import type { AdminOverview, SessionUser } from "@/lib/types";
 import { Avatar } from "@/components/ui/misc";
 import { LogoMark } from "@/components/layout/logo";
 import {
-  ArrowLeft, ArrowUpRight, Building2, ChartColumn, ChevronLeft, ChevronRight, Database, Flag, LayoutDashboard, ListChecks, LogOut, Menu, Search, ScrollText, Users, X, House, User as UserIcon,
+  ArrowLeft, ArrowLeftRight, ArrowUpRight, Building2, ChartColumn, ChevronLeft, ChevronRight, Database, Flag, LayoutDashboard, ListChecks, LogOut, Menu, Search, ScrollText, Users, X, House, User as UserIcon,
   type LucideIcon,
 } from "@/components/ui/icon";
 import { ActionMenu, useData } from "@/components/panel/common";
@@ -105,7 +105,11 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
   const router = useRouter();
   const { logout } = useSession();
   const [drawer, setDrawer] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [width, setWidth] = useState(232);
+  const [dragging, setDragging] = useState(false);
+  const preferred = useRef(232);
+  const drag = useRef<{ x: number; start: number; latest: number; moved: boolean } | null>(null);
+  const compact = width < 148;
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
   const [hi, setHi] = useState(0);
@@ -113,12 +117,45 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
   const searchWrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => setDrawer(false), [pathname]);
-  useEffect(() => { setCollapsed(localStorage.getItem(NAV_KEY) === "compact"); }, []);
-  const toggleNav = () => setCollapsed((v) => {
-    const next = !v;
-    localStorage.setItem(NAV_KEY, next ? "compact" : "full");
-    return next;
-  });
+  useEffect(() => {
+    const raw = localStorage.getItem(NAV_KEY);
+    const n = raw === "compact" ? 76 : raw === "full" ? 232 : Number(raw);
+    if (n >= 76 && n <= 480) {
+      setWidth(n);
+      if (n >= 148) preferred.current = n;
+    }
+  }, []);
+  const saveWidth = (next: number) => {
+    const value = Math.round(Math.min(480, Math.max(76, next)));
+    if (value >= 148) preferred.current = value;
+    setWidth(value);
+    localStorage.setItem(NAV_KEY, String(value));
+    return value;
+  };
+  const toggleNav = () => saveWidth(width < 148 ? preferred.current : 76);
+  const onDragStart = (e: ReactPointerEvent<HTMLDivElement>) => {
+    drag.current = { x: e.clientX, start: width, latest: width, moved: false };
+    setDragging(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* el puntero ya no está activo */ }
+  };
+  const onDragMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    if (Math.abs(dx) > 3) d.moved = true;
+    if (!d.moved) return;
+    const next = Math.round(Math.min(480, Math.max(76, d.start + dx)));
+    d.latest = next;
+    setWidth(next);
+  };
+  const onDragEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    setDragging(false);
+    if (!d) return;
+    if (!d.moved) saveWidth(d.start < 148 ? preferred.current : 76);
+    else saveWidth(d.latest);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -158,21 +195,32 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
     <>
       {/* El pie de página global no aplica al admin: este shell tiene su propio chrome. */}
       <style>{`body > footer { display: none; }`}</style>
-      <div className={cn("min-h-dvh bg-white lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-[cubic-bezier(0.16,1,0.3,1)]", collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[232px_minmax(0,1fr)]")}>
-        <aside id="admin-nav" className={cn("sticky top-0 hidden h-dvh w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line bg-white lg:flex", collapsed ? "gap-4 px-2 py-4" : "gap-5 px-3 py-4")} aria-label="Barra lateral">
-          <div className={cn("grid gap-2", collapsed ? "justify-items-center" : "px-1")}>
-            <Brand compact={collapsed} />
-            <button type="button" onClick={toggleNav} aria-expanded={!collapsed} aria-controls="admin-nav" className={cn("flex h-10 items-center rounded-xl border border-line-strong text-sm font-semibold text-ink-2 transition hover:border-ink hover:bg-surface", collapsed ? "w-10 justify-center" : "gap-2 px-3")}>
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-              <span className={cn(collapsed && "sr-only")}>{collapsed ? "Ampliar menú" : "Reducir menú"}</span>
+      <div className={cn("relative min-h-dvh bg-white lg:grid", !dragging && "lg:transition-[grid-template-columns] lg:duration-300 lg:ease-[cubic-bezier(0.16,1,0.3,1)]")} style={{ gridTemplateColumns: `${width}px minmax(0, 1fr)` }}>
+        <div role="separator" aria-orientation="vertical" aria-valuemin={76} aria-valuemax={480} aria-valuenow={width} aria-label="Arrastra para ampliar o reducir el menú" tabIndex={0}
+          onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") { e.preventDefault(); saveWidth(width - 24); }
+            else if (e.key === "ArrowRight") { e.preventDefault(); saveWidth(width + 24); }
+          }}
+          title="Arrastra para ampliar o reducir el menú"
+          style={{ left: width }}
+          className={cn("absolute top-6 z-40 hidden h-8 w-8 -translate-x-1/2 cursor-ew-resize touch-none items-center justify-center rounded-full border border-line-strong bg-white text-ink-2 shadow-[0_6px_16px_-8px_rgb(23_20_16/0.45)] hover:border-ink hover:text-ink lg:flex", !dragging && "transition-[left] duration-300")}>
+          <ArrowLeftRight className="h-4 w-4" />
+        </div>
+        <aside id="admin-nav" className={cn("sticky top-0 hidden h-dvh w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line bg-white lg:flex", compact ? "gap-4 px-2 py-4" : "gap-5 px-3 py-4")} aria-label="Barra lateral">
+          <div className={cn("grid gap-2", compact ? "justify-items-center" : "px-1")}>
+            <Brand compact={compact} />
+            <button type="button" onClick={toggleNav} aria-expanded={!compact} aria-controls="admin-nav" className={cn("flex h-10 items-center rounded-xl border border-line-strong text-sm font-semibold text-ink-2 transition hover:border-ink hover:bg-surface", compact ? "w-10 justify-center" : "gap-2 px-3")}>
+              {compact ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              <span className={cn(compact && "sr-only")}>{compact ? "Ampliar menú" : "Reducir menú"}</span>
             </button>
           </div>
-          <NavLinks compact={collapsed} />
+          <NavLinks compact={compact} />
           <div className="mt-auto grid gap-2">
-            <BackActions onBack={goBack} compact={collapsed} />
-            <div className={cn("flex items-center rounded-xl bg-surface", collapsed ? "justify-center p-1.5" : "gap-3 px-3 py-2.5")} title={collapsed ? user.name : undefined}>
-              <Avatar name={user.name} src={user.avatarUrl} size={collapsed ? 32 : 34} />
-              <div className={cn("min-w-0", collapsed && "sr-only")}><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-ink-3">Administrador</p></div>
+            <BackActions onBack={goBack} compact={compact} />
+            <div className={cn("flex items-center rounded-xl bg-surface", compact ? "justify-center p-1.5" : "gap-3 px-3 py-2.5")} title={compact ? user.name : undefined}>
+              <Avatar name={user.name} src={user.avatarUrl} size={compact ? 32 : 34} />
+              <div className={cn("min-w-0", compact && "sr-only")}><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs text-ink-3">Administrador</p></div>
             </div>
           </div>
         </aside>
